@@ -43,7 +43,7 @@ object Mediator {
 	/**
 	 * Cost-sensitive field
 	 */
-	private val COST_SENSITIVE_FIELD = "cost-sensitive"
+	private val COST_SENSITIVE_FIELD = "cost_sensitive"
 	
 	/**
 	 * Dataset header path
@@ -61,26 +61,6 @@ object Mediator {
 	private val INIT_SEED = "init_seed"
 
 	/**
-	 * Hadoop: number of mappers
-	 * /
-	private final val HADOOP_NUM_MAPPERS_FIELD = "hadoop_num_mappers"
-
-	/ **
-	 * Hadoop: number of rules processed in the reduced
-	 * /
-	private final val hadoop_max_rules_reducer_FIELD = "hadoop_max_rules_reducer"
-
-	/ **
-	 * Hadoop: maximum minutes with no status update in mapreduce tasks
-	 * /
-	private final val HADOOP_MAX_MINS_NO_UPDATE_FIELD = "hadoop_max_mins_no_update"
-
-	/ **
-	 * HDFS location field
-	 * /
-	private final val HDFS_LOCATION_FIELD = "hdfs_location"
-
-	/ **
 	 * Learner training input path field
 	 */
 	private val LEARNER_INPUT_PATH_FIELD = "learner_input_path"
@@ -160,26 +140,6 @@ object Mediator {
 	private var frm: Byte = 0
 
 	/**
-	 * Hadoop: number of mappers
-	 * /
-	private var hadoopNumMappers: Int = 0
-
-	/ **
-	 * Hadoop: number of rules processed in the reducer
-	 * /
-	private var hadoopNumRulesReducer: Int = 0
-
-	/ **
-	 * Hadoop: number of mappers
-	 * /
-	private var hadoopMaxMinsNoUpdate: Int = 0
-
-	/ **
-	 * HDFS Location
-	 * /
-	private var hdfsLocation: String = null*/
-
-	/**
 	 * Dataset Header Path
 	 */
 	private var headerPath: String = null
@@ -213,18 +173,6 @@ object Mediator {
 	 * If crossValidation parameter is equal or lesser than 0, will be false otherwise is true 
 	 */
 	private var optionCrossValidation: Boolean = false
-	
-	/**
-	 * If costSensitive parameter is equal or lesser than 0, will be false otherwise is true 
-	 */
-	private var optionCostSensitive: Boolean = false
-	
-	/**
-	 * True for reading the tuned DBs from the previous MR stage
-	 */
-	//private var tuning: Boolean = false
-	
-	//private var hdfs: FileSystem 
   
   /**
 	 * Variables's Genetic Algorithm
@@ -237,21 +185,6 @@ object Mediator {
   
 	private var init_seed: Long = 0
 	
-  /**
-	 * Returns the needed split size to execute the specified number of mappers for the given input path
-	 * @param inputPath input path
-	 * @param numMappers number of mappers
-	 * @return needed split size to execute the specified number of mappers for the given input path
-	 * @return throws IOException 
-	 * /
-	def computeHadoopSplitSize (inputPath: String, numMappers: Byte): Long = throws IOException{
-		Path path = new Path(inputPath)
-		hdfs = path.getFileSystem(configuration)
-		ContentSummary cSummary = hdfs.getContentSummary(path)
-		result = (cSummary.getLength() / numMappers)
-		result
-	}*/
-
   /**
   * Create a RB output folder 
   */
@@ -358,6 +291,12 @@ object Mediator {
 	def getConfiguration (): SparkConf = configuration
 
 	/**
+	 * Returns if cost sensitive function is allowed
+	 * @return true: if cost sensitive function is allowed
+	 */
+  def getCostSensitive(): Boolean = costSensitive 
+  
+	/**
 	 * Returns the size of poblation for the genetic algorithm
 	 * @return size of poblation for the genetic algorithm
 	 */
@@ -368,38 +307,6 @@ object Mediator {
 	 * @return 0 for Winning Rule and 1 for Additive Combination
 	 */
 	def getFRM (): Byte = frm
-
-	/**
-	 * Returns the number of Hadoop Mappers used for the execution
-	 * @return number of Hadoop Mappers used for the execution
-	 * /
-	def getHadoopNumMappers (): Byte ={
-		hadoopNumMappers
-	}
-
-	/ **
-	 * Get the number of rules processed in the Hadoop reducer
-	 * @return
-	 * /
-	def getHadoopNumRulesReducer (): Byte ={
-		hadoopNumRulesReducer
-	}
-
-	/ **
-	 * Returns the maximum minutes of MapReduce task execution with no status update
-	 * @return maximum minutes of MapReduce task execution with no status update
-	 * /
-	def getHadoopMaxMinsNoUpdate (): Byte{
-		hadoopMaxMinsNoUpdate
-	}
-
-	/ **
-	 * Returns the HDFS location
-	 * @return HDFS location
-	 * /
-	def getHDFSLocation (): String ={
-		hdfsLocation+"/"
-	}*/
 	
 	/**
 	 * Returns the dataset header path
@@ -468,12 +375,6 @@ object Mediator {
 	 */
   def getOptionCrossValidation(): Boolean = optionCrossValidation
   
-  /**
-	 * Returns true if the cost sensitive is enabled
-	 * @return true if the cost sensitive is enabled
-	 */
-  def getOptionCostSensitive(): Boolean = optionCostSensitive
-  
 	/**
 	 * Returns the size of poblation for the genetic algorithm
 	 * @return size of poblation for the genetic algorithm
@@ -507,7 +408,7 @@ object Mediator {
 		classifierOutputPath = conf.get(CLASSIFIER_OUTPUT_PATH_FIELD)
 		classifierDatabasePath = conf.get(CLASSIFIER_DATABASE_PATH_FIELD)
 		classifierRuleBasePath = conf.get(CLASSIFIER_RULE_BASE_PATH_FIELD)
-		//hdfsLocation = conf.get(HDFS_LOCATION_FIELD)
+
 		var frmStr = conf.get(FRM_FIELD)
 		if(frmStr.contentEquals("wr") || frmStr.contentEquals("winningrule") || frmStr.contentEquals("winning_rule")){
 		  frm = KnowledgeBase.FRM_WINNING_RULE
@@ -521,16 +422,7 @@ object Mediator {
 		
 		var buffer: String = ""
 
-		/*buffer = conf.get(TUNING_FIELD).toLowerCase().trim()
-		tuning = if(buffer.contentEquals("true") || buffer.contentEquals("1")) true else false*/
-		
 		configuration = conf
-
-		// Read the number of examples of each class
-		//readClassNumExamples () -> Previously step, before function in main
-		
-		// Read data base
-		//readDataBase()
 
 	}
 
@@ -584,20 +476,6 @@ object Mediator {
 	  }
 
 	}
-
-	/**
-	 * Reads the configuration of Hadoop
-	 * @throws Base64DecodingException 
-	 * @throws IOException 
-	 * @throws ClassNotFoundException 
-	 * /
-	def readHadoopConfiguration () throws Base64DecodingException, IOException, ClassNotFoundException{
-
-		hadoopNumMappers = Integer.parseInt(configuration.get(HADOOP_NUM_MAPPERS_FIELD))
-		hadoopNumRulesReducer = Integer.parseInt(configuration.get(hadoop_max_rules_reducer_FIELD))
-		hadoopMaxMinsNoUpdate = Integer.parseInt(configuration.get(HADOOP_MAX_MINS_NO_UPDATE_FIELD))
-
-	}*/
 
 	def readRuleBaseTmp(sc: SparkContext, dataBase: DataBase): Array[FuzzyRule] = {
 	  import org.apache.hadoop.fs.{FileSystem, Path}
@@ -664,10 +542,11 @@ object Mediator {
 		headerPath = conf.get(DATASET_HEADER_PATH)
 		learnerInputPath = conf.get(LEARNER_INPUT_PATH_FIELD)
 		learnerOutputPath = conf.get(LEARNER_OUTPUT_PATH_FIELD)
-		//learnerRuleBaseSize = conf.get(LEARNER_RULE_BASE_SIZE_FIELD).toByte
-		
-		//hdfsLocation = conf.get(HDFS_LOCATION_FIELD)
-		//hadoopNumMappers = Integer.parseInt(conf.get(HADOOP_NUM_MAPPERS_FIELD))
+		val cs = conf.get(COST_SENSITIVE_FIELD)
+		if(cs.contentEquals("1"))
+		  costSensitive = true
+		else
+		  costSensitive = false
 				
 		/**
 		 *  Read basic configuration about Classifier
@@ -746,17 +625,6 @@ object Mediator {
 		classifierRuleBasePath = newRuleBasePath
 
 	}
-
-	/**
-	 * Stores the HDFS location in the configuration file
-	 * @param newHDFSLocation HDFS location (hdfs://remote_address:remote_port)
-	 * /
-	def saveHDFSLocation (newHDFSLocation: String){
-
-		configuration.set(HDFS_LOCATION_FIELD, newHDFSLocation)
-		hdfsLocation = newHDFSLocation
-
-	}*/
 	
 	/**
 	 * Stores dataset header path in the configuration file
@@ -768,26 +636,6 @@ object Mediator {
 		headerPath = newSatasetHeader
 
 	}	
-  
-  /**
-	 * Stores the main information of the dataset: variables and class labels
-	 * @param kb a knowledge base, in whose database is kept all the former information
-	 * /
-	public static void saveInfoDataset(KnowledgeBase kb){
-		DataBase db = kb.getDataBase();
-		try{
-			//CAMBIAR PARA MULTIPLE BD
-			hdfs = FileSystem.get(new URI(Mediator.getHDFSLocation()), Mediator.getConfiguration());
-			ObjectOutputStream objectOutputStream = new ObjectOutputStream(hdfs.create(new Path(Mediator.getHDFSLocation()+"/"+Mediator.getLearnerDatabasePath())));
-			objectOutputStream.writeObject((Variable []) db.getDataBase());
-			objectOutputStream.writeObject(db.getClassLabels());
-			objectOutputStream.close();
-		}catch(Exception e){
-			System.err.println("\nERROR WRITING DATA BASE (URI)");
-			e.printStackTrace();
-		}
-
-	}*/
 	
 	/**
 	 * Stores learner input path in the configuration file
@@ -870,16 +718,16 @@ object Mediator {
 	/**
 	 * Stores CHI algorithm parameters in the configuration file
 	 * @param inputFilePath input file path
-	 * @throws IOException 
-	 * @throws URISyntaxException 
+	 * @return true: If cost sensitive function is allowed
 	 */
-	def storeChiParameters (maxParams: Int, inputFilePath: String) = {
+	def storeChiParameters (maxParams: Int, inputFilePath: String): Array[Boolean] = {
 
 	  //Reading file
     val lines = Source.fromFile(inputFilePath).getLines.toArray
-    var buffer: String = null
+    var CS_RS = Array.fill(2)(false)
 		var st: StringTokenizer = null
 		var i = 0
+		var correct_params = true
 		for(buffer <- lines){
 			st = new StringTokenizer (buffer, "=")
 			var param = st.nextToken().toLowerCase()
@@ -891,17 +739,36 @@ object Mediator {
 			  configuration.set(param,st.nextToken().toLowerCase())
 			  i = i + 1
 		  }
+			if(param.compareTo("cost_sensitive") == 0){
+			  val cost_sensitive = st.nextToken().toLowerCase()
+			  configuration.set(param,cost_sensitive)
+			  i = i + 1
+			  if(cost_sensitive.compareTo("1") == 0)
+           CS_RS(0) = true
+           
+        if(cost_sensitive.compareTo("1") != 0 || cost_sensitive.compareTo("0") != 0)
+          correct_params = false
+		  }
 		  else if(param.compareTo("num_individuals") == 0){				  
 			   configuration.set(param,st.nextToken().toLowerCase())
 			   i = i + 1
 			}
-		  else if(param.compareTo("num_evaluations") == 0){				  
-			   configuration.set(param,st.nextToken().toLowerCase())
-			   i = i + 1
+		  else if(param.compareTo("num_evaluations") == 0){
+		    val num_evaluations = st.nextToken().toLowerCase()
+			  configuration.set(param,num_evaluations)
+			  i = i + 1
+			  if(num_evaluations.toInt > 0)
+			    CS_RS(1) = true
+			    
+			  if(num_evaluations.toInt < 0)
+			    correct_params = false
 			}
-			else if(param.compareTo("alpha") == 0){				  
-			   configuration.set(param,st.nextToken().toLowerCase())
-			   i = i + 1
+			else if(param.compareTo("alpha") == 0){
+			  val alpha = st.nextToken().toLowerCase()
+			  configuration.set(param,alpha)
+			  i = i + 1
+			  if(alpha.toDouble < 0.0 || alpha.toDouble > 1.0)
+			    correct_params = false
 			}
 		  else if(param.compareTo("init_seed") == 0){				  
 			   configuration.set(param,st.nextToken())
@@ -914,27 +781,22 @@ object Mediator {
 			     optionCrossValidation = true
 			   i = i + 1
 			}
-			else if(param.compareTo("cost_sensitive") == 0){				  
-			   val aux = st.nextToken().toLowerCase()
-			   configuration.set(param,aux)
-			   if(aux.toByte > 0)
-			     optionCostSensitive = true
-			   i = i + 1
-			}
 		}
 
-    if(i != maxParams){
-      throw new IllegalArgumentException("ERROR IN FILE "+inputFilePath+"\n Number of paramaters is always 8, like this:\n"
-                           +" inference={winning_rule, additive_combination}\n"
+    if(i != maxParams || correct_params){
+      throw new IllegalArgumentException("ERROR IN FILE "+inputFilePath+"\n Number of paramaters is always 4, like this:\n"
+                           +" inference={0: FRM_WINNING_RULE = 0, 1:FRM_ADDITIVE_COMBINATION}\n"
                            +" num_linguistic_labels={3, 5,...}\n" 
+                           +" cost_sensitive={0: Without Cost Sensitive, 1: Function Cost Sensitive}\n" 
                            +" num_individuals={1,..., 50,...}\n"
-                           +" num_evaluations={0 (for standard Chi), 1000, ...}\n"
-                           +" alpha={0.5, 0.6,...}\n"
-                           +" init_seed={12345678,...}\n"
-                           +" cross_validation={0: No CrossValidation,1,...}\n"
-                           +" cost_sensitive={0: Standard Classification, 1: Cost Sensitive Learning}\n")
+                           +" num_evaluations={1,...}\n"
+                           +" alpha={0.0,...,1.0}\n"
+                           +" init_seed={0,...}\n"
+                           +" cross_validation={0: No CrossValidation, 1,...}\n")
       
     }
+  
+    CS_RS
 	}
 
 	/**

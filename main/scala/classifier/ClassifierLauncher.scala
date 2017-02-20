@@ -97,30 +97,6 @@ object ClassifierLauncher {
 	}
 
 	/**
-	 * Returns true if the specified optional arguments are valid
-	 * @param args optional arguments
-	 * @return true if the specified optional arguments are valid
-	 */
-	private def validOptionalArgs (args: Array[String]): Boolean = {
-		
-		// Iterate over args
-		for (i <- 0 to (args.length - 1)){
-			if (args(i).charAt(0)!='-'){
-				return false
-			}
-			// Iterate over characters (to read combined arguments)
-			for (charPos <- 1 to (args(i).length() - 1)){
-				for (j <- 0 to (VALID_OPTIONAL_ARGS.length - 1)){
-					if (args(i).charAt(charPos) == VALID_OPTIONAL_ARGS(j)){
-						return true
-					}
-				}
-			}
-		}
-		return false
-	}
-
-	/**
 	 * Writes the confusion matrix
 	 * @param confusionMatrix input confusion matrix
 	 * @throws IOException 

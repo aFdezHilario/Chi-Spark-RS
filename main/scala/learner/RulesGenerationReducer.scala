@@ -1,6 +1,7 @@
 package learner
 
-import core.{FuzzyRule, KnowledgeBase, Population}
+import core.{FuzzyRule, KnowledgeBase, DataBase}
+import utils.{ConsequentPart}
 
 /**
  * Reducer class used to gather rules
@@ -11,15 +12,31 @@ object RulesGenerationReducer extends Serializable {
   
   def reduce(op1: KnowledgeBase, op2: KnowledgeBase): KnowledgeBase = {
    
-      var merge = Set[FuzzyRule]()
+      var merge = Map[FuzzyRule, Int]()
+      
       /**
     	 * Compute the rule weight of each rule and solve the conflicts with function in ByteArrayWritable
     	 */
     	try{
-
-    	  merge ++= op1.getRuleBase().toSet
-    	  merge ++= op2.getRuleBase().toSet
     	  
+    	  op1.getRuleBase() foreach { rule =>
+    	    merge += (rule -> 1)
+    	  }
+    	  /*println("*****************************************************************")
+    	  for (m <- op1.getRuleBase())
+    	    println("@ Op1 =" + m.getAntecedent().deep.mkString(" ") + " | C " + m.getClassIndex() + " | W " + m.getRuleWeight()+ " | 2 W " + m.getRuleWeightCounter().deep)
+    	  for (m <- merge)
+    	    println("@ Merge1 =" + m._1.getAntecedent().deep.mkString(" ") + " | C " + m._1.getClassIndex() + " | W " + m._1.getRuleWeight() + " | 2 W " + m._1.getRuleWeightCounter().deep)*/
+    	  
+    	  op2.getRuleBase() foreach { rule =>
+    	    merge += (rule -> 1)
+    	  }
+    	  
+    	  /*for (m <- op2.getRuleBase())
+    	    println("@ Op2 =" + m.getAntecedent().deep.mkString(" ") + " | C " + m.getClassIndex() + " | W " + m.getRuleWeight()+ " | 2 W " + m.getRuleWeightCounter().deep)
+    	  for (m <- merge)
+    	    println("@ Merge3 =" + m._1.getAntecedent().deep.mkString(" ") + " | C " + m._1.getClassIndex() + " | W " + m._1.getRuleWeight() + " | 2 W " + m._1.getRuleWeightCounter().deep)
+    	  println("-----------------------------------------------------------------------")*/
     	}catch {
     	  case e: Exception => {
           System.err.println("ERROR REDUCE PARTITION: \n")
@@ -27,10 +44,15 @@ object RulesGenerationReducer extends Serializable {
           System.exit(-1)}
     	}
     	
-    	var result = merge.toArray
+    	var result = Array[FuzzyRule]()
+    	merge foreach { rule =>
+    	  result = result :+ rule._1
+    	}
     	
-    	//*TMP
-    	var kb = new KnowledgeBase(op1.getDataBase(), result)
+    	/*for(rule <- result)
+    	  println("@ Rule - " + rule.getAntecedent().deep.mkString(" ") + " | C=" + rule.getClassIndex() + " | W=" + rule.getRuleWeight() + " | W=" + rule.getRuleWeightCounter().deep.mkString(" "))*/
+    	  
+    	var kb = new KnowledgeBase(op2.getDataBase(), result)
     	if(op1.getCounterRules() == null)
     	  kb.addCounterRules(op1.getCounter())
     	else 
@@ -38,19 +60,7 @@ object RulesGenerationReducer extends Serializable {
     	if(op2.getCounterRules() == null)
     	  kb.addCounterRules(op2.getCounter())
     	else 
-    	  kb.addCounterRules(op2.getCounter())
+    	  kb.addCounterRules(op2.getCounterRules())
     	kb
-    	
-    	/*TMP
-    	var cc = Array[Array[Int]]()
-    	cc = op1.getCounterClass()
-    	for(i <- 0 to (op2.getCounterClass().length - 1))
-    	  cc = cc :+ op2.getCounterClass()(i)
-    	
-    	new KnowledgeBase(op1.getDataBase(), result, cc)*/
-    	
-    	
-    	//new KnowledgeBase(op1.getDataBase(), result)
   }
- 
 }

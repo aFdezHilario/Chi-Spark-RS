@@ -6,7 +6,7 @@ import org.apache.hadoop.io.Writable
 
 import java.io.{DataInput, DataOutput}
 
-import utils.CounterRules
+import utils.{CounterRules, ConsequentPart}
 
 object KnowledgeBase {
   
@@ -104,7 +104,7 @@ class KnowledgeBase extends Writable with Serializable{
     this()
 		ruleBase = Array[FuzzyRule]()
 		dataBase = db
-
+		
 	}
   
   def this (db: DataBase, rb: Array[FuzzyRule]/*, tmp cc: Array[Array[Int]]*/){
@@ -574,7 +574,7 @@ class KnowledgeBase extends Writable with Serializable{
 		}
 	  
 	  var id: Int = 0
-	  ruleBase.foreach { rule => 
+	  for (rule <- ruleBase){ 
 	    
 	    bwText.write("Rule ("+id.toString()+"): IF ")
 	    

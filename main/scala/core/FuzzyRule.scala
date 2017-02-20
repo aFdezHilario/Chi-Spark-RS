@@ -4,6 +4,8 @@ import org.apache.hadoop.io.Writable
 
 import java.io.{DataInput, DataOutput}
 
+import utils.ConsequentPart
+
 /**
  * Represents a fuzzy rule 
  * @author Eva M. Almansa
@@ -65,24 +67,35 @@ class FuzzyRule extends Writable with Serializable {
      this()
   	 this.antecedents = antecedents.clone()
   	 this.classIndex = classIndex
-  	 this.ruleWeight_counter = Array.fill(numClassLabels, numClassLabels)(0.0) //For each class->(0=ruleWeight, 1=Counter)
+  	 this.ruleWeight_counter = Array.fill(numClassLabels, 2)(0.0) //For each class->(0=ruleWeight, 1=Counter)
   	 this.ruleWeight_counter(classIndex)(0) = ruleWeight
-  	 this.ruleWeight_counter(classIndex)(1) = 1
+  	 this.ruleWeight_counter(classIndex)(1) = 1.0
   	 
   }
    
   private def updateClassIndex(){
-      if((ruleWeight_counter(0)(0)/ruleWeight_counter(0)(1)) > (ruleWeight_counter(1)(0)/ruleWeight_counter(1)(1))){
+    if(ruleWeight_counter(0)(1) > 0.0 && ruleWeight_counter(1)(1) < 1.0)
+      classIndex = 0
+    else if (ruleWeight_counter(0)(1) < 1.0 && ruleWeight_counter(1)(1) > 0.0)
+      classIndex = 1
+    else if ((ruleWeight_counter(0)(0)/ruleWeight_counter(0)(1)) > (ruleWeight_counter(1)(0)/ruleWeight_counter(1)(1)))
+      classIndex = 0
+    else if ((ruleWeight_counter(0)(0)/ruleWeight_counter(0)(1)) == (ruleWeight_counter(1)(0)/ruleWeight_counter(1)(1))){
+      if ((ruleWeight_counter(0)(0)) >= (ruleWeight_counter(1)(0)))
         classIndex = 0
-      }
-      else
+      else 
         classIndex = 1
+    }else
+      classIndex = 1
   }
   
   override def clone(): FuzzyRule = {
     
   	var fr = new FuzzyRule(antecedents, this.classIndex, ruleWeight_counter.length.toByte)
-  	fr.ruleWeight_counter = this.ruleWeight_counter.clone  	
+  	for(i <- 0 to (ruleWeight_counter.length - 1)){
+  	  for(j <- 0 to (ruleWeight_counter(i).length - 1))
+  	    fr.ruleWeight_counter(i)(j) = this.ruleWeight_counter(i)(j)
+  	}
   	fr
   	
   }
@@ -91,8 +104,8 @@ class FuzzyRule extends Writable with Serializable {
    * Checks if the antecedents are equal and selects the FuzzyRule with the biggest rule weights. 
    */
   override def equals(obj:Any): Boolean = {
-    var equal: Boolean = false
-    if(obj.isInstanceOf[FuzzyRule] && obj.asInstanceOf[FuzzyRule].antecedents.deep == this.antecedents.deep){
+
+    if(obj.isInstanceOf[FuzzyRule] && (obj.asInstanceOf[FuzzyRule].antecedents sameElements this.antecedents)){
       /* MAX
        * if(this.getRuleWeight < obj.asInstanceOf[FuzzyRule].getRuleWeight){
         this.classIndex = obj.asInstanceOf[FuzzyRule].classIndex
@@ -102,9 +115,9 @@ class FuzzyRule extends Writable with Serializable {
         this.ruleWeight_counter(1)(1) = 1
       }*/
      
-      if(classIndex != -1 && obj.asInstanceOf[FuzzyRule].classIndex != -1){
+     if(classIndex != -1 && obj.asInstanceOf[FuzzyRule].classIndex != -1){
      
-        //println("@ Equals this= "+ antecedents.deep.mkString(" ") +" | Class = " + classIndex + " | Weight positive= " + ruleWeight_counter(0).deep.mkString(", ") + " | Weight negative= " + ruleWeight_counter(1).deep.mkString(", "))
+       	//println("@ Equals this= "+ antecedents.deep.mkString(" ") +" | Class = " + classIndex + " | Weight positive= " + ruleWeight_counter(0).deep.mkString(", ") + " | Weight negative= " + ruleWeight_counter(1).deep.mkString(", "))
         //println("@ Equals obj= "+ obj.asInstanceOf[FuzzyRule].antecedents.deep.mkString(" ") +" | Class = " + obj.asInstanceOf[FuzzyRule].classIndex + " | Weight positive= " + obj.asInstanceOf[FuzzyRule].ruleWeight_counter(0).deep.mkString(", ") + " | Weight negative= " + obj.asInstanceOf[FuzzyRule].ruleWeight_counter(1).deep.mkString(", "))
       
         //Rule Weight
@@ -123,9 +136,9 @@ class FuzzyRule extends Writable with Serializable {
           this.ruleWeight_counter = obj.asInstanceOf[FuzzyRule].ruleWeight_counter.clone
       }
       
-      equal = true
+      return true
     }
-    equal
+    return false
   }
   
   /**
@@ -179,6 +192,8 @@ class FuzzyRule extends Writable with Serializable {
    */
   def getRuleWeight (index: Byte): Double = ruleWeight_counter(index)(0)/ruleWeight_counter(index)(1)
   
+  def getRuleWeightCounter (): Array[Array[Double]] = ruleWeight_counter
+  
   /**
    * Sets the rule weight
    * @param rule weight
@@ -189,6 +204,15 @@ class FuzzyRule extends Writable with Serializable {
       this.ruleWeight_counter(ci)(1) = 1.0 //Counter of each class label
   }
 	
+  def setRuleWeightCounter(rwCounter: Array[Array[Double]]){
+    for(i <- 0 to (rwCounter.length - 1)){
+      this.ruleWeight_counter(i)(0) = rwCounter(i)(0)  
+      this.ruleWeight_counter(i)(1) = rwCounter(i)(1)
+    }
+    
+    this.updateClassIndex()
+  }
+  
   def toString (db: DataBase): String = {
 
       var output = "IF "

@@ -31,10 +31,8 @@ class ConfusionMatrixMapper() extends Serializable{
     
 		// Read configuration
 		try {
-			//Mediator.setConfiguration(conf)
 			Mediator.readClassifierConfiguration(conf)
 			fuzzyReasoningMethod = Mediator.getFRM()
-			//println("fuzzyReasoningMethod="+fuzzyReasoningMethod)
 		}
 		catch{
 			case e: Exception => {
@@ -56,15 +54,18 @@ class ConfusionMatrixMapper() extends Serializable{
 	  while(values.hasNext){
       val value = values.next
   	  val input = value.replaceAll(" ", "").split(",")
-  	  val example = input.slice(0, input.length -1)
-  	  var predictedClass, exampleClass: Byte = 0
   	  
-      exampleClass = ruleBaseBC.value.getDataBase().getClassIndex(input(posClassLabels))
-      if(exampleClass != -1){
-        // Classify the example
-        predictedClass = ruleBaseBC.value.classify(fuzzyReasoningMethod, example)
-        confusionMatrix(exampleClass)(predictedClass) = confusionMatrix(exampleClass)(predictedClass) + 1
-      }
+  	  if(input.length == (ruleBaseBC.value.getDataBase.getPosClassLabels() + 1)){
+    	  val example = input.slice(0, input.length -1)
+    	  var predictedClass, exampleClass: Byte = 0
+    	  
+        exampleClass = ruleBaseBC.value.getDataBase().getClassIndex(input(posClassLabels))
+        if(exampleClass != -1){
+          // Classify the example
+          predictedClass = ruleBaseBC.value.classify(fuzzyReasoningMethod, example)
+          confusionMatrix(exampleClass)(predictedClass) = confusionMatrix(exampleClass)(predictedClass) + 1
+        }
+  	  }
 	  }
     
     Iterator(confusionMatrix)

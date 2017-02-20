@@ -61,6 +61,62 @@ class RulesGenerationCS() extends Serializable {
 	private var counter_class:  Array[Int] = null // Counter the occurrences related with positive class and negative class 
 	private var counter_rules:  Array[Int] = null // Counter the occurrences related with positive class and negative class
 	
+	private def computeMatchingDegreesRule(){
+		/*matchingDegrees = new Array[Double](ruleBaseTmp.size())(dataBase.getNumClasses())
+		for (int i = 0; i < ruleBaseTmp.size(); i++)
+			for (int j = 0; j < dataBase.getNumClasses(); j++)
+				matchingDegrees[i][j] = 0.0f;
+		membershipDegrees = new float[dataBase.getNumVariables()][Mediator.getNumLinguisticLabels()];
+		rulesClasses = new ArrayList [ruleBaseTmp.size()];
+		ruleBase = new byte[ruleBaseTmp.size()][dataBase.getNumVariables()];
+		Iterator<Entry<ByteArrayWritable,ArrayList<Byte>>> iterator = ruleBaseTmp.entrySet().iterator();
+		Entry<ByteArrayWritable,ArrayList<Byte>> ruleEntry;
+		int i = 0;
+		while (iterator.hasNext()){
+			ruleEntry = iterator.next();
+			ruleBase[i] = ruleEntry.getKey().getBytes(); // Antecedents of the rule
+			rulesClasses[i] = ruleEntry.getValue(); // Classes of the rule
+			i++;
+		}*/
+	}
+
+	private def computeMatchingDegreesAll(){
+	
+		/*for (i <- 0 to (inputValues.length - 1)){
+			// Compute the membership degree of the current value to all linguistic labels
+			for (j <- 0 to (dataBase.getNumVariables() - 1)) {
+				if (dataBase.get(j).isInstanceOf[FuzzyVariable])
+					for (label <- 0 to (Mediator.getNumLinguisticLabels() - 1))
+						membershipDegrees(j)(label) = dataBase.computeMembershipDegree(j,label,inputValues(i)(j));
+			}
+			// Compute the matching degree of the example with all rules
+			for (j <- 0 to (ruleBase.length - 1)){
+				matchingDegrees(j)(classLabels(i)) += dataBase.computeMatchingDegree(
+						membershipDegrees, ruleBase(j), inputValues(i))
+			}
+		}*/
+	}
+
+	private def computeRuleWeight(i: Int): Double = {
+	  
+		var currentRW, ruleWeight, sum, sumOthers: Double = 0.0
+		/*classIndex = -1
+		for (j <- 0 to (matchingDegrees(i).length - 1)){
+			sum += matchingDegrees(i)(j)
+		}
+		for (j <- 0 to (matchingDegrees(i).length - 1)){
+			if (rulesClasses(i).contains(j.toByte)){
+				sumOthers = sum - matchingDegrees(i)(j)
+				currentRW = (matchingDegrees(i)(j) - sumOthers) / sum; //P-CF
+				if (currentRW > ruleWeight){
+					ruleWeight = currentRW
+					classIndex = j.toByte
+				}
+			}
+		}*/
+		ruleWeight
+	} 
+	
 	def setup(sc: SparkContext, conf: SparkConf): RulesGenerationCS = {
     
 		//Starting logger
@@ -71,12 +127,10 @@ class RulesGenerationCS() extends Serializable {
 		 */
 		try {
 			//Mediator.readLearnerConfiguration(conf)
-		  time_outputFile = Mediator.getLearnerOutputPath()+"//"+Mediator.TIME_STATS_DIR
-		  
-		  //Only needed for EFS Rule Selection:
 			popSize = Mediator.getPopSize()
 			numEvaluations = Mediator.getNumEvaluations()
 			alpha = Mediator.getAlpha()
+			time_outputFile = Mediator.getLearnerOutputPath()+"//"+Mediator.TIME_STATS_DIR
 		}
 		catch{
 		   case e: Exception => {
@@ -90,14 +144,13 @@ class RulesGenerationCS() extends Serializable {
 		 */
 		try{
 			dataBase = new DataBase(sc, Mediator.getHeaderPath())
+			//println(dataBase.toString())
 		}catch{
 		  case e: Exception => {
         System.err.println("\nMAP: ERROR BUILDING DATA BASE\n")
         e.printStackTrace()
         System.exit(-1)}
 		}
-		
-		startMs = System.currentTimeMillis()
 		
 		ruleBase = Map[FuzzyRule, Array[ConsequentPart]]()
 		inputValues = Array[Array[String]]()
@@ -106,37 +159,36 @@ class RulesGenerationCS() extends Serializable {
 		/**
 		 * Compute the cost of each class
 		 */
-		classCost = Array.fill(2)(1.0)
-		var numExamples: Array[Long] = dataBase.getClassNumExamples()
-		if (Mediator.getOptionCostSensitive()){
-		  System.err.println("Cost sensitive active!");
+		classCost = Array.fill(dataBase.getNumClasses())(1.0)
+		if(Mediator.getCostSensitive()){
+  		var numExamples: Array[Long] = dataBase.getClassNumExamples()
   		if (numExamples(0) < numExamples(1)){
-  			classCost(0) = 1.0
-  			classCost(1) = (numExamples(1).toDouble)/(numExamples(0).toDouble)
-  		}		else{
-  			classCost(0) = (numExamples(0).toDouble)/(numExamples(1).toDouble)
-  			classCost(1) = 1.0
+  			classCost(1) = (numExamples(0).toDouble)/(numExamples(1).toDouble) // Maj = (1/IR)
+  		  //classCost(0) = (numExamples(1).toDouble)/(numExamples(0).toDouble) // Min = (IR)
   		}
-	 }
-
+  		else if (numExamples(0) > numExamples(1)){
+  			classCost(0) = (numExamples(1).toDouble)/(numExamples(0).toDouble) // Maj = (1/IR)
+  		  //classCost(1) = (numExamples(0).toDouble)/(numExamples(1).toDouble) // Min = (IR)
+  		}
+		}
 		this
 	}
   
   def ruleBasePartition(index: Int, values: Iterator[String], sc: SparkContext): Iterator[KnowledgeBase] = {
+    
+    startMs = System.currentTimeMillis()
     
     var populationSet = Set[FuzzyRule]()
     var kb = new KnowledgeBase(dataBase) 
     counter_class = Array.fill(dataBase.getNumClasses())(0) //Counter of ocurrences
     counter_rules = Array.fill(dataBase.getNumClasses())(0) //Counter of ocurrences
     
-    //System.err.println("Ejemplos: "+values.length);
     while(values.hasNext){
       val value = values.next
       var input: Array[String] = null
       input = value.replaceAll(" ", "").split(",")
       
-      if(!input.isEmpty){
-        
+      if(input.length == (dataBase.getPosClassLabels() + 1)){     
         val classIndex: Byte = dataBase.getClassIndex(input(dataBase.getPosClassLabels()))
         
         /*if (classIndex == -1){
@@ -211,6 +263,7 @@ class RulesGenerationCS() extends Serializable {
       
       //logger.info("@ Rule - " + rule._1.getAntecedent().deep.mkString(" | ") + " | C=" + classIndex + " | W=" + weight)
       if(weight > 0){
+        //println("@ Index="+ index.toString+", Rule - " + rule._1.getAntecedent().deep.mkString(" ") + " | C=" + classIndex + " | W=" + weight)
         
         val res = new FuzzyRule(rule._1.getAntecedent(), classIndex, weight, dataBase.getNumClasses())
         
@@ -222,20 +275,12 @@ class RulesGenerationCS() extends Serializable {
     }
     
     kb.initCounterRules(counter_rules)
-    //println("@ Map= "+index.toString+" | Counter rules= "+counter_rules.deep.mkString(" "))
-    //println("@ Map= "+index.toString+" | Counter class= " + counter_class.deep.mkString(", "))
-    //println("@ Map= "+index.toString+" | size="+ kb.getSizeRuleBase())
-    //println("@ Rule Base "+ index.toString+"= "+kb.counterClassLabels().deep.mkString(" "))
-    //populationSet.foreach { rule => kb.addFuzzyRule(rule)}
     
-    //Genetic Rule Learning process. Control by "num_evaluations" parameter
     var pop = new Population()
 		if (kb.size() > 0 && numEvaluations > 0){
+		  //println("kb before=" + kb.toString())
 			pop = new Population(kb,popSize,numEvaluations,1.0,62,alpha,inputValues,classLabels)
 			kb = pop.Generation(sc)
-			//System.gc()
-			//context.write(new IntWritable(mapperID), kb); //RB contiene DB			
-			//context.write(new IntWritable(mapperID), new IntWritable(0)); //RB contiene DB
 		}
 
     //println("@ Map= "+index.toString+" | Counter class=> Positive= " + kb.getCounter().getPositive() + ", Negative= " + kb.getCounter().getNegative())
@@ -283,8 +328,7 @@ class RulesGenerationCS() extends Serializable {
 		}
 		
 		//kb.addCounterClass(counter_class)
-		
-		
+			
 		Iterator(kb)
   }
   

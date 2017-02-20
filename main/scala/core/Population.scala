@@ -27,7 +27,6 @@ class Population extends Serializable{
 	def this (kb: KnowledgeBase, popSize: Int, nEvals: Int, crossProb: Double, bitsGen: Int, alpha: Double, values: Array[Array[String]], classLabels: Array[Byte]){
 	  
 	  this()
-		//Randomize.setSeed(12345678) //cambiar?
 		this.kb = kb.clone()
 		this.nEvals = nEvals
 		this.totalEvals = nEvals
@@ -46,7 +45,6 @@ class Population extends Serializable{
 				this.inputValues(i)(j) = values(i)(j)//.toDouble
 			}
 		}
-		//this.inputValues = inputValues; //quitado el clone para ahorrar memoria
 		this.classLabels = classLabels
 	}
 	
@@ -125,13 +123,13 @@ class Population extends Serializable{
 			  if(classIndex == this.classLabels(i))
 				  TP = TP + 1
 			  else
-          FP = FP + 1
+          FN = FN + 1
 			}
 			else{
 			  if(classIndex == this.classLabels(i))
 				  TN = TN + 1
 			  else
-          FN = FN + 1
+          FP = FP + 1
 			}
 		}
 	  
@@ -174,14 +172,11 @@ class Population extends Serializable{
 		population.foreach { c => 
 		  if (!c.isEvaluated()){
 				nuevos = true //There is at least one new chromosome in the population
-				//kb.getDataBase().twotuples(c)//
 				var acc: Double = classify(c.getIndividual())
 				println("@ AUC fitness= "+acc.toString)
 				c.setFitness(acc)
 				c.evaluated()
 				nEvals = nEvals - 1
-				//println("Evaluate="+c.toString)
-				//println("Evaluate="+acc.toString)
 				if (acc > best)
 					best = acc
 			} 
@@ -216,7 +211,6 @@ class Population extends Serializable{
 			//Compute the hamming distance between them
 			/*if (mom.hamming(dad)/2.0 > threshold){ 
 				//xPC_BLX(mom,dad)
-				//System.err.println("Ham OK: "+ham+" vs "+threshold);
 			}*/
 		}
 	}
@@ -244,6 +238,7 @@ class Population extends Serializable{
     population = population :+ (son1)
     population = population :+ (son2)
   }
+	
 	/*private def xPC_BLX(mom: Chromosome, dad: Chromosome){
 		var son1 = mom.clone()
 		var son2 = dad.clone()
