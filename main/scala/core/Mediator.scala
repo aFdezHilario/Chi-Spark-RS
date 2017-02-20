@@ -215,6 +215,11 @@ object Mediator {
 	private var optionCrossValidation: Boolean = false
 	
 	/**
+	 * If costSensitive parameter is equal or lesser than 0, will be false otherwise is true 
+	 */
+	private var optionCostSensitive: Boolean = false
+	
+	/**
 	 * True for reading the tuned DBs from the previous MR stage
 	 */
 	//private var tuning: Boolean = false
@@ -462,6 +467,12 @@ object Mediator {
 	 * @return true if the cross validation is permitted
 	 */
   def getOptionCrossValidation(): Boolean = optionCrossValidation
+  
+  /**
+	 * Returns true if the cost sensitive is enabled
+	 * @return true if the cost sensitive is enabled
+	 */
+  def getOptionCostSensitive(): Boolean = optionCostSensitive
   
 	/**
 	 * Returns the size of poblation for the genetic algorithm
@@ -903,17 +914,25 @@ object Mediator {
 			     optionCrossValidation = true
 			   i = i + 1
 			}
+			else if(param.compareTo("cost_sensitive") == 0){				  
+			   val aux = st.nextToken().toLowerCase()
+			   configuration.set(param,aux)
+			   if(aux.toByte > 0)
+			     optionCostSensitive = true
+			   i = i + 1
+			}
 		}
 
     if(i != maxParams){
-      throw new IllegalArgumentException("ERROR IN FILE "+inputFilePath+"\n Number of paramaters is always 4, like this:\n"
-                           +" inference={0: FRM_WINNING_RULE = 0, 1:FRM_ADDITIVE_COMBINATION}\n"
+      throw new IllegalArgumentException("ERROR IN FILE "+inputFilePath+"\n Number of paramaters is always 8, like this:\n"
+                           +" inference={winning_rule, additive_combination}\n"
                            +" num_linguistic_labels={3, 5,...}\n" 
                            +" num_individuals={1,..., 50,...}\n"
-                           +" num_evaluations={1,...}\n"
-                           +" alpha={0.0,...}\n"
-                           +" init_seed={0,...}\n"
-                           +" cross_validation={0: No CrossValidation,1,...}\n")
+                           +" num_evaluations={0 (for standard Chi), 1000, ...}\n"
+                           +" alpha={0.5, 0.6,...}\n"
+                           +" init_seed={12345678,...}\n"
+                           +" cross_validation={0: No CrossValidation,1,...}\n"
+                           +" cost_sensitive={0: Standard Classification, 1: Cost Sensitive Learning}\n")
       
     }
 	}

@@ -12,19 +12,19 @@ object fuzzyGenetic {
   
   private val EXECUTIONS = Array(16,32,64,128)
   private val NUM_PROGRAM_ARGS: Int = 7
-  private val NUM_PARAMS: Int = 7
+  private val NUM_PARAMS: Int = 8 //for Chi Parameters file
 	private val COMMAND_STR: String = ("\n  <Spark_path>spark-submit --master <local[*] or spark://hadoop-master:7077> --class <name_class> <jar_file>" 
 	                                   + "\n  <parameters_file:" 
-	                                           + "\n    {inference,number_of_labels,num_individuals,num_evaluations,cross_validation}>"
+	                                           + "\n    {inference,number_of_labels,num_individuals,num_evaluations,cross_validation, cost_sensitive}>"
 	                                   + "\n  <input_path(Folder)> <header_file>" 
 	                                   + "\n  <name_inputFile> <TEST file: tra.dat or tst.dat> OR <inputTrainFile> <inputTestFile>" 
 	                                           + "\n   (iteratively inside ->" 
 	                                           + "\n         IF cross_validation > 0" 
 	                                           + "\n         THEN <name_inputFile> + -5-?tra.dat AND <TEST file: tra.dat or tst.dat>"
 	                                           + "\n         ELSE <inputTrainFile> <inputTestFile>)" 
-	                                   + "\n  <number_of_partitions> <ouput_path(Folder)>\n")
+	                                   + "\n  <number_of_map_partitions> <ouput_path(Folder)>\n")
 	
-	private var jobName = "Chi-Spark-SC-SR_"
+	private var jobName = "Chi-Spark-RS_"
 	
 	/**
 	 * Variables 
@@ -98,8 +98,8 @@ object fuzzyGenetic {
   		 */  
       logger.info("Save basic parameters...")
   		//Mediator.saveHDFSLocation(hdfsLocation)
-  		Mediator.saveLearnerInputPath(inputPath)
-  		Mediator.saveHeaderPath(inputPath+headerFile)
+  		
+  		//Mediator.saveHeaderPath(inputPath+headerFile)
   		try{
     		Mediator.saveLearnerOutputPath(sc, outputPath)
       }catch{
@@ -115,11 +115,12 @@ object fuzzyGenetic {
   		 */
   		//Mediator.setConfiguration(sc.getConf)
   		//Mediator.saveHDFSLocation(hdfsLocation)
+      Mediator.saveLearnerInputPath(inputPath)
   		Mediator.saveClassifierInputPath(inputPath)
-  		Mediator.saveHeaderPath(inputPath+headerFile)
+  		Mediator.saveHeaderPath(inputPath+"/"+headerFile)
   		Mediator.saveClassifierOutputPath(outputPath)
-  		Mediator.saveClassifierRuleBasePath(outputPath+"//RB")
-  		Mediator.saveClassifierDataBasePath(outputPath+"//DB")
+  		Mediator.saveClassifierRuleBasePath(outputPath+"/RB")
+  		Mediator.saveClassifierDataBasePath(outputPath+"/DB")
       
       /**
   		 * READ CONFIGURATION
@@ -143,7 +144,7 @@ object fuzzyGenetic {
   		  /**
         	 * Learner
         	 */
-          learnerLauncher(inputPath + inputFile, nPartitions)
+          learnerLauncher(inputPath +"/"+ inputFile, nPartitions)
           
           /**
         	 * Classifier Test
@@ -156,18 +157,18 @@ object fuzzyGenetic {
           classifierLauncher(true, inputFile, nPartitions, true)
   		}else{
         /**
-      	 * Cross Validation
+      	 * Cross Validation can be automatically carried out from this program
       	 */
         var last_iteration = false
         for (iteration <- 1 to Mediator.getCrossValidation()){
           
           /**
-        	 * Learner
+        	 * Learner (considers 5fcv by default)
         	 */
-          learnerLauncher(inputPath + inputFile + "-5-" + iteration.toString + "tra.dat", nPartitions)
+          learnerLauncher(inputPath +"/"+ inputFile + "-5-" + iteration.toString + "tra.dat", nPartitions)
           
           /**
-        	 * Classifier
+        	 * Classifier (considers 5fcv by default)
         	 */
           if(iteration == Mediator.getCrossValidation())
             last_iteration = true
@@ -197,7 +198,7 @@ object fuzzyGenetic {
         Randomize.setSeed(Mediator.getInitSeed)
         
         /**
-    		 * Rules Generate CS
+    		 * Rules Generation [Possibly Cost-sensitive]
     		 */
         val rulesGenerationCS = RulesGenerationCS.setup(sc, Mediator.getConfiguration())
         
@@ -206,40 +207,11 @@ object fuzzyGenetic {
                         .cache()
        
         kb = output.reduce((op1, op2) => RulesGenerationReducer.reduce(op1, op2))
-          //kb = output.reduce((op1, op2) => )
-       
-        /*if (kb.size() > 0 && Mediator.getNumEvaluations() > 0){
-    		  var pop = new Population()
-    		  logger.info("@ START POPULATION LAUNCHER...")
-    		  
-    		  var inputValues = Array[Array[String]]()
-    		  var classLabels = Array[Byte]()
-    		  var classIndex: Byte = 0
           
-    		  var values = sc.textFile(inputFile, 1).collect() 
-    		  for(value <- values){
-            var input: Array[String] = null
-            input = value.replaceAll(" ", "").split(",")
-            if(!value.isEmpty){
-              inputValues = inputValues :+ input
-              classIndex = kb.getDataBase().getClassIndex(input(kb.getDataBase().getPosClassLabels()))
-              classLabels = classLabels :+ classIndex
-            }
-          }
-    		  pop = new Population(kb,Mediator.getPopSize(),Mediator.getNumEvaluations(),1.0,62,inputValues,classLabels)
-    		  
-    		  logger.info("@ START GENERATION...")
-    		  
-    		  kb = pop.Generation_Global(sc, nPartitions)
-    		  
-    		  logger.info("@ ... END POPULATION LAUNCHER")
-    		}*/
         endMs = System.currentTimeMillis()
         
         println("@ RB size="+ kb.getSizeRuleBase())
         println("@ Final Rule Base="+kb.counterClassLabels().deep.mkString(" "))
-        //logger.info("Solution Rule Base...")
-        //kb.getRuleBase().foreach{rule => println(rule.getAntecedent().mkString(" ") + " | C=" + rule.getClassIndex() + ", Weight=" + rule.getRuleWeight())}
       }catch {
     	  case e: Exception => {
     	    System.err.println("ERROR LAUNCHING MAPREDUCE:\n")
@@ -314,7 +286,7 @@ object fuzzyGenetic {
       val kbBC = broadcastRuleBase(kb, sc)
       
       val confusionMatrixMapper = ConfusionMatrixMapper.setup(Mediator.getConfiguration())
-      var confusionMatrix = sc.textFile(Mediator.getClassifierInputPath()+inputFile, nPartitions)
+      var confusionMatrix = sc.textFile(Mediator.getClassifierInputPath()+"/"+inputFile, nPartitions)
                               .mapPartitions(testPart => confusionMatrixMapper.mapPartition(testPart, kbBC))
                               .cache
       
