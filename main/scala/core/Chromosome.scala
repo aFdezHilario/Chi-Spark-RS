@@ -32,7 +32,6 @@ class Chromosome extends Comparable[Object] with Serializable{
 		for (j <- 0 to (individual.length - 1)){
 			individual(j) = if(Randomize.getRandom.nextDouble < 0.5) 1 else 0 //0 (inclusive) and 1 (exclusive)
 		}
-		//println("Initialize: "+individual.deep.mkString(" "))
 		fitness = 0
 	}
 	

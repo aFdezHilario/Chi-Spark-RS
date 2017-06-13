@@ -99,6 +99,8 @@ object Mediator {
 	
 	private val ALPHA = "alpha"
 	
+	private val RW = "rw"
+	
 	/**
 	 * Number of examples of each class
 	 */
@@ -138,6 +140,11 @@ object Mediator {
 	 * Fuzzy Reasoning Method
 	 */
 	private var frm: Byte = 0
+	
+	/**
+	 * Rule Weight
+	 */
+	private var rw: Byte = 0
 
 	/**
 	 * Dataset Header Path
@@ -307,6 +314,12 @@ object Mediator {
 	 * @return 0 for Winning Rule and 1 for Additive Combination
 	 */
 	def getFRM (): Byte = frm
+	
+	/**
+	 * Returns the Rule Weight heuristic used for the rules
+	 * @return 0 for "No weights", 1 for "Certainty Factor" (CF), 2 for "Penalized Certainty Factor (P-CF)"
+	 */
+	def getRW (): Byte = rw
 	
 	/**
 	 * Returns the dataset header path
@@ -564,6 +577,17 @@ object Mediator {
 		  frm = KnowledgeBase.FRM_ADDITIVE_COMBINATION
 		}
 		
+		var rwStr = conf.get(RW)
+		if(rwStr.contentEquals("none") || rwStr.contentEquals("noweights") || rwStr.contentEquals("no_weights")){
+		  rw = KnowledgeBase.RW_NONE
+		}
+		else if(rwStr.contentEquals("cf") || rwStr.contentEquals("certaintyfactor") || rwStr.contentEquals("certainty_factor")){
+		  rw = KnowledgeBase.RW_CF
+		}
+		else{
+		  rw = KnowledgeBase.RW_PCF
+		}
+		
 		/**
 		 *  Read basic configuration about Chi
 		 */
@@ -729,16 +753,20 @@ object Mediator {
 		var i = 0
 		var correct_params = true
 		for(buffer <- lines){
-			st = new StringTokenizer (buffer, "=")
+			st = new StringTokenizer (buffer, " = ")
 			var param = st.nextToken().toLowerCase()
 		  if(param.compareTo("inference") == 0){
 			  configuration.set(param,st.nextToken().toLowerCase())
 			  i = i + 1
-		  }
+		  }else
 			if(param.compareTo("num_linguistic_labels") == 0){
 			  configuration.set(param,st.nextToken().toLowerCase())
 			  i = i + 1
-		  }
+		  }else
+			if(param.compareTo("rw") == 0){
+			  configuration.set(param,st.nextToken().toLowerCase())
+			  i = i + 1
+		  }else
 			if(param.compareTo("cost_sensitive") == 0){
 			  val cost_sensitive = st.nextToken().toLowerCase()
 			  configuration.set(param,cost_sensitive)
@@ -784,9 +812,10 @@ object Mediator {
 		}
 
     if(i != maxParams || correct_params){
-      throw new IllegalArgumentException("ERROR IN FILE "+inputFilePath+"\n Number of paramaters is always 4, like this:\n"
+      throw new IllegalArgumentException("ERROR IN FILE "+inputFilePath+"\n Number of paramaters is always "+maxParams+", like this:\n"
                            +" inference={0: FRM_WINNING_RULE = 0, 1:FRM_ADDITIVE_COMBINATION}\n"
-                           +" num_linguistic_labels={3, 5,...}\n" 
+                           +" num_linguistic_labels={3, 5,...}\n"
+                           +" rw={None, CF, PCF}\n"
                            +" cost_sensitive={0: Without Cost Sensitive, 1: Function Cost Sensitive}\n" 
                            +" num_individuals={1,..., 50,...}\n"
                            +" num_evaluations={1,...}\n"

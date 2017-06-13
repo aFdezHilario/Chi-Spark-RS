@@ -8,12 +8,13 @@ import core.{DataBase, FuzzyRule, Mediator, KnowledgeBase}
 /**
  * Launches MapReduce to classify input examples. 
  * @author Eva M. Almansa
- * @version 1.0
+ * @author Alberto Fernandez (alberto@decsai.ugr.es) - University of Granada
+ * @version 1.0 (E. Almansa) - 05-feb-2017
+ * @version 1.1 (A. Fernandez) - 12-jun-2017
+ * 
+ * Auxiliary class for storing the results of the classification (time and evaluation metrics)
  */
 object ClassifierLauncher {
-
-	private final val VALID_OPTIONAL_ARGS: Array[Char] = Array[Char]()
-	private final val MAX_OPTIONAL_ARGS: Int = VALID_OPTIONAL_ARGS.length
 
 	/**
 	 * Writes total execution time
@@ -81,19 +82,6 @@ object ClassifierLauncher {
 		  }
 		}
 
-	}
-
-	/**
-	 * Returns the list of optional args
-	 * @return list of optional args
-	 */
-	private def printOptionalArgs(): String = {
-		var output: String = ""
-		for (i <- 0 to (MAX_OPTIONAL_ARGS - 1)){
-			output += " [-" + VALID_OPTIONAL_ARGS(i) + "]"
-		}
-		output += " "
-		output
 	}
 
 	/**
@@ -175,7 +163,9 @@ object ClassifierLauncher {
 	}
 	
 	/**
-	 * Writes the AUC and if exist, will be accumulated
+	 * Writes the Area Under the ROC Curve (AUC) and if the file exists, will be accumulated.
+	 * 
+	 * It is also prepared to compute the geometric mean of the true rates (GM)
 	 */
 	def write_avgAUC_MG (train: Boolean, AUC: Double, last_iteration: Boolean, sc: SparkContext){
 	  

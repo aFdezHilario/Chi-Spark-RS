@@ -12,7 +12,9 @@ object KnowledgeBase {
   
   final val FRM_WINNING_RULE: Byte = 0
 	final val FRM_ADDITIVE_COMBINATION: Byte = 1
-  
+  final val RW_NONE: Byte = 0;
+  final val RW_CF: Byte = 1;
+  final val RW_PCF: Byte = 2;
 }
 
 class KnowledgeBase extends Writable with Serializable{
@@ -344,7 +346,7 @@ class KnowledgeBase extends Writable with Serializable{
 		}
   	
 		//Truncation
-		var indexMax: Int = 1
+		var indexMax: Int = 1 //default class = 0
 		var max: Double = output(1)
 		for (i <- 2 to (output.length - 1)){
 			if (output(i) > max){
@@ -575,7 +577,6 @@ class KnowledgeBase extends Writable with Serializable{
 	  
 	  var id: Int = 0
 	  for (rule <- ruleBase){ 
-	    
 	    bwText.write("Rule ("+id.toString()+"): IF ")
 	    
 	    // Write antecedents
@@ -604,16 +605,16 @@ class KnowledgeBase extends Writable with Serializable{
 			if (printStdOut){
 				System.out.print(dataBase.getDataBase()(rule.getAntecedent().length - 1).getName()+" IS ")
 			}
-			if (dataBase.getDataBase()(rule.getAntecedent().length - 2).isInstanceOf[NominalVariable]){
-				bwText.write(dataBase.getDataBase()(rule.getAntecedent().length - 1).asInstanceOf[NominalVariable].getNominalValue(rule.getAntecedent()(rule.getAntecedent().length - 2)))
+			if (dataBase.getDataBase()(rule.getAntecedent().length - 1).isInstanceOf[NominalVariable]){
+				bwText.write(dataBase.getDataBase()(rule.getAntecedent().length - 1).asInstanceOf[NominalVariable].getNominalValue(rule.getAntecedent()(rule.getAntecedent().length - 1)))
 				if (printStdOut){
-					System.out.print(dataBase.getDataBase()(rule.getAntecedent().length - 1).asInstanceOf[NominalVariable].getNominalValue(rule.getAntecedent()(rule.getAntecedent().length - 2)))
+					System.out.print(dataBase.getDataBase()(rule.getAntecedent().length - 1).asInstanceOf[NominalVariable].getNominalValue(rule.getAntecedent()(rule.getAntecedent().length - 1)))
 				}
 			}
 			else {
-				bwText.write("L_" + rule.getAntecedent()(rule.getAntecedent().length - 2).toString())
+				bwText.write("L_" + rule.getAntecedent()(rule.getAntecedent().length - 1).toString())
 				if (printStdOut){
-					System.out.print("L_" + rule.getAntecedent()(rule.getAntecedent().length - 2).toString())
+					System.out.print("L_" + rule.getAntecedent()(rule.getAntecedent().length - 1).toString())
 				}
 			}
 

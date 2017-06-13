@@ -13,7 +13,11 @@ import core.{FuzzyRule, Mediator, KnowledgeBase, Variable}
 /**
  * Mapper class that classifies each example and returns a confusion matrix
  * @author Eva M. Almansa
- * @version 1.0
+ * @author Alberto Fernandez (alberto@decsai.ugr.es) - University of Granada
+ * @version 1.0 (E. Almansa) - 05-feb-2017
+ * @version 1.1 (A. Fernandez) - 12-jun-2017
+ * 
+ * The Knowledge Base is applied over a subset of examples (split) and partial results are accumulated into a global confusion matrix
  */
 class ConfusionMatrixMapper() extends Serializable{
    
@@ -46,6 +50,8 @@ class ConfusionMatrixMapper() extends Serializable{
 	
 	def mapPartition(values: Iterator[String], ruleBaseBC: Broadcast[KnowledgeBase]): Iterator[Array[Array[Int]]]/*Iterator[Array[IntArrayWritable]]*/ = {
 	  
+	  var logger = Logger.getLogger(this.getClass());
+	  logger.info("Starting classification");
 	  val nClasses = ruleBaseBC.value.getDataBase().getNumClasses()
 	  val posClassLabels = ruleBaseBC.value.getDataBase().getPosClassLabels()
     var confusionMatrix = Array.fill(nClasses, nClasses)(0)
@@ -67,7 +73,7 @@ class ConfusionMatrixMapper() extends Serializable{
         }
   	  }
 	  }
-    
+    logger.info("Finishing classification");
     Iterator(confusionMatrix)
    
   }

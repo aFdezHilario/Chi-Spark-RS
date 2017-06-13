@@ -12,8 +12,9 @@ import utils.ConsequentPart
 
 /**
  * Cost-sensitive version of RulesGenerationMapper 
- * @author Eva M. Almansa
- * @version 1.0
+ * @author Eva M. Almansa (eva.m.almansa@gmail.com)
+ * @author Alberto Fernandez (alberto@decsai.ugr.es) - University of Granada
+ * @version 1.1 (A. Fernandez) - 12/06/2017
  */
 class RulesGenerationCS() extends Serializable {
   
@@ -23,19 +24,24 @@ class RulesGenerationCS() extends Serializable {
 	private var dataBase: DataBase = null
   
 	/**
-	 * Rule Base
+	 * Rule Base (cannot use Array as key, not hashcode available)
 	 */
 	private var ruleBase: Map[FuzzyRule, Array[ConsequentPart]] = null // Key: antecedents of the rule, Value: Classes of the rule
 	private var classCost: Array[Double] = null // Cost associated to each class
+	private var rw: Byte = 0;
+		
+	private var matchingDegrees: Array[Array[Double]] = null;   
+  private var membershipDegrees: Array[Array[Double]] = null;
+
 	
 	/**
-	 * Variables's CHC genetic algorithm 
+	 * Variables's CHC genetic algorithm (for EFS Rule Selection)
 	 */
 	var popSize, numEvaluations: Int = 0
 	var alpha: Double = 0.0
 	
 	/**
-	 * Counters
+	 * Time Counters
 	 */
 	private var startMs, endMs: Long = 0
 	
@@ -44,11 +50,6 @@ class RulesGenerationCS() extends Serializable {
 	 */
 	private var time_outputFile: String = ""
 	
-	/**
-	 * Rule Base
-	 */
-	//private var matchingDegrees: Array[Array[Double]] = null // Matching degrees of the classes of each rule
-
 	/**
 	 * Dataset
 	 */
@@ -61,81 +62,81 @@ class RulesGenerationCS() extends Serializable {
 	private var counter_class:  Array[Int] = null // Counter the occurrences related with positive class and negative class 
 	private var counter_rules:  Array[Int] = null // Counter the occurrences related with positive class and negative class
 	
-	private def computeMatchingDegreesRule(){
-		/*matchingDegrees = new Array[Double](ruleBaseTmp.size())(dataBase.getNumClasses())
-		for (int i = 0; i < ruleBaseTmp.size(); i++)
-			for (int j = 0; j < dataBase.getNumClasses(); j++)
-				matchingDegrees[i][j] = 0.0f;
-		membershipDegrees = new float[dataBase.getNumVariables()][Mediator.getNumLinguisticLabels()];
-		rulesClasses = new ArrayList [ruleBaseTmp.size()];
-		ruleBase = new byte[ruleBaseTmp.size()][dataBase.getNumVariables()];
-		Iterator<Entry<ByteArrayWritable,ArrayList<Byte>>> iterator = ruleBaseTmp.entrySet().iterator();
-		Entry<ByteArrayWritable,ArrayList<Byte>> ruleEntry;
-		int i = 0;
-		while (iterator.hasNext()){
-			ruleEntry = iterator.next();
-			ruleBase[i] = ruleEntry.getKey().getBytes(); // Antecedents of the rule
-			rulesClasses[i] = ruleEntry.getValue(); // Classes of the rule
-			i++;
-		}*/
-	}
-
+	/**
+	 * Compute the membership degree of the current value to all linguistic labels
+	 */
 	private def computeMatchingDegreesAll(){
 	
-		/*for (i <- 0 to (inputValues.length - 1)){
-			// Compute the membership degree of the current value to all linguistic labels
-			for (j <- 0 to (dataBase.getNumVariables() - 1)) {
-				if (dataBase.get(j).isInstanceOf[FuzzyVariable])
-					for (label <- 0 to (Mediator.getNumLinguisticLabels() - 1))
-						membershipDegrees(j)(label) = dataBase.computeMembershipDegree(j,label,inputValues(i)(j));
-			}
-			// Compute the matching degree of the example with all rules
-			for (j <- 0 to (ruleBase.length - 1)){
-				matchingDegrees(j)(classLabels(i)) += dataBase.computeMatchingDegree(
-						membershipDegrees, ruleBase(j), inputValues(i))
-			}
-		}*/
+	  matchingDegrees = Array.fill(ruleBase.size,dataBase.getNumClasses())(0.0)  
+    membershipDegrees = Array.fill(dataBase.getNumVariables(), dataBase.getNumLinguisticLabels())(0.0)
+    
+    var i = 0
+    for (input <- inputValues){
+      //pre-computation of the membership degrees for the rule weight
+      for (j <- 0 to (dataBase.getNumVariables() - 1)){ 
+        if (dataBase.get(j).isInstanceOf[FuzzyVariable]){
+          for (label <- 0 to (dataBase.getNumLinguisticLabels() - 1)){
+            membershipDegrees(j)(label) = dataBase.computeMembershipDegree(j.toByte, label.toByte, input(j))
+          }
+        }
+      }
+      var classIndex = classLabels(i)
+      var j = 0
+      for (rule <- ruleBase){
+          //t-norm computation for all rules
+          matchingDegrees(j)(classIndex) = dataBase.computeMatchingDegree(membershipDegrees, rule._1.getAntecedent(), input)* classCost(classIndex); 
+          //(dataBase.computeMatchingDegree(membershipDegrees, ruleBase(0), input) * classCost(classIndex))
+          j+=1
+      }
+      i+=1
+    }//for examples
 	}
 
-	private def computeRuleWeight(i: Int): Double = {
+	private def computeConsequent(consequents: Array[ConsequentPart], ruleId: Int): ConsequentPart = {
 	  
-		var currentRW, ruleWeight, sum, sumOthers: Double = 0.0
-		/*classIndex = -1
-		for (j <- 0 to (matchingDegrees(i).length - 1)){
-			sum += matchingDegrees(i)(j)
-		}
-		for (j <- 0 to (matchingDegrees(i).length - 1)){
-			if (rulesClasses(i).contains(j.toByte)){
-				sumOthers = sum - matchingDegrees(i)(j)
-				currentRW = (matchingDegrees(i)(j) - sumOthers) / sum; //P-CF
-				if (currentRW > ruleWeight){
-					ruleWeight = currentRW
-					classIndex = j.toByte
-				}
-			}
-		}*/
-		ruleWeight
+		var weight, weightOther, sumTotal: Double = 0.0
+      var classIndex,s: Byte = 0
+      for(consequent <- consequents){ //for all consequent classes of the rule
+        sumTotal = sumTotal + matchingDegrees(ruleId)(consequent.getClassIndex())
+      }
+      for(consequent <- consequents){ //for all consequent classes of the rule
+        var currWeight = matchingDegrees(ruleId)(consequent.getClassIndex());
+        weightOther = 0;
+        if (rw == KnowledgeBase.RW_PCF){ //just in case of PCF
+          weightOther = sumTotal - currWeight; 
+        }
+        currWeight = (currWeight - weightOther)/sumTotal
+        if(currWeight > weight){
+            weight = currWeight
+            classIndex = consequent.getClassIndex()
+          }
+      }
+		 val cq = new ConsequentPart(classIndex,weight);
+		 cq
 	} 
 	
+	/**
+	 * Initializes the variables and data structures: learner and databse
+	 */
 	def setup(sc: SparkContext, conf: SparkConf): RulesGenerationCS = {
     
 		//Starting logger
-    var logger = Logger.getLogger(this.getClass())    
-    
+   var logger = Logger.getLogger(this.getClass())    
+   logger.info("Starting setup");
     /**
 		 * STEP 1: Read Learner configuration (paths, labels, and so on)
 		 */
 		try {
-			//Mediator.readLearnerConfiguration(conf)
 			popSize = Mediator.getPopSize()
 			numEvaluations = Mediator.getNumEvaluations()
 			alpha = Mediator.getAlpha()
 			time_outputFile = Mediator.getLearnerOutputPath()+"//"+Mediator.TIME_STATS_DIR
+			rw = Mediator.getRW()
 		}
 		catch{
 		   case e: Exception => {
-        System.err.println("\nSTAGE 1: ERROR READING CONFIGURATION => ")
-        e.printStackTrace()
+        logger.error("\nSTAGE 1: ERROR READING CONFIGURATION => ")
+        logger.error(e.toString)
         System.exit(-1)}
 		}
 		
@@ -144,7 +145,6 @@ class RulesGenerationCS() extends Serializable {
 		 */
 		try{
 			dataBase = new DataBase(sc, Mediator.getHeaderPath())
-			//println(dataBase.toString())
 		}catch{
 		  case e: Exception => {
         System.err.println("\nMAP: ERROR BUILDING DATA BASE\n")
@@ -157,45 +157,56 @@ class RulesGenerationCS() extends Serializable {
 		classLabels = Array[Byte]()
 		
 		/**
-		 * Compute the cost of each class
+		 * Compute the cost of each class (currently only binary case)
 		 */
 		classCost = Array.fill(dataBase.getNumClasses())(1.0)
 		if(Mediator.getCostSensitive()){
   		var numExamples: Array[Long] = dataBase.getClassNumExamples()
   		if (numExamples(0) < numExamples(1)){
   			classCost(1) = (numExamples(0).toDouble)/(numExamples(1).toDouble) // Maj = (1/IR)
-  		  //classCost(0) = (numExamples(1).toDouble)/(numExamples(0).toDouble) // Min = (IR)
   		}
   		else if (numExamples(0) > numExamples(1)){
   			classCost(0) = (numExamples(1).toDouble)/(numExamples(0).toDouble) // Maj = (1/IR)
-  		  //classCost(1) = (numExamples(0).toDouble)/(numExamples(1).toDouble) // Min = (IR)
   		}
 		}
+		logger.info("Setup Finished");
 		this
 	}
   
+	/**
+	 * Chi et al learning algorithm: 
+	 * - One rule per example. 
+	 * - Repeated rules are not taken into account (only consequents)
+	 * - RWs are computed after all rules have been discovered
+	 * - Double consequent rules are merged: class label is related with the highest RW
+	 */
   def ruleBasePartition(index: Int, values: Iterator[String], sc: SparkContext): Iterator[KnowledgeBase] = {
     
+    var logger = Logger.getLogger(this.getClass())
+
+    var populationSet = Set[FuzzyRule]() //for EFS rule selection
+    var kb = new KnowledgeBase(dataBase)  //final KB
+    
+    //Auxiliar vars
+    var classEntry: Array[ConsequentPart] = null // (Index, RuleWeight) - for hash map during learning
+    var input: Array[String] = null
+    
+    //Counters
+    counter_class = Array.fill(dataBase.getNumClasses())(0) //Counter of occurrences of classes
+    counter_rules = Array.fill(dataBase.getNumClasses())(0) //Counter of occurrences of rules
     startMs = System.currentTimeMillis()
     
-    var populationSet = Set[FuzzyRule]()
-    var kb = new KnowledgeBase(dataBase) 
-    counter_class = Array.fill(dataBase.getNumClasses())(0) //Counter of ocurrences
-    counter_rules = Array.fill(dataBase.getNumClasses())(0) //Counter of ocurrences
-    
-    while(values.hasNext){
+    while(values.hasNext){ //for all input examples in given Map
       val value = values.next
-      var input: Array[String] = null
+      
       input = value.replaceAll(" ", "").split(",")
       
-      if(input.length == (dataBase.getPosClassLabels() + 1)){     
+      if(input.length == (dataBase.getPosClassLabels() + 1)){
         val classIndex: Byte = dataBase.getClassIndex(input(dataBase.getPosClassLabels()))
         
-        /*if (classIndex == -1){
-  				throw new SecurityException("\nERROR RULES GENERATION: The class is not correct, this algorithm is not preparated for empty or N/A data, error="+input(dataBase.getPosClassLabels())+"*\n")
-  			}else*/
-        if (classIndex != -1){
-  			
+        if (classIndex == -1){
+  				throw new SecurityException("\nERROR RULES GENERATION: The class is not correct, this algorithm is not prepared for empty or N/A data, error="+input(dataBase.getPosClassLabels())+"*\n Check header file!")
+  			}else{
           inputValues = inputValues :+ input      
           classLabels = classLabels :+ classIndex
           
@@ -203,89 +214,88 @@ class RulesGenerationCS() extends Serializable {
           
           val antecedents = dataBase.getRuleFromExample(input)
           val newRule = new FuzzyRule(antecedents, dataBase.getNumClasses())
-          var classEntry: Array[ConsequentPart] = null // (Index, RuleWeight)
-          
-          val matchingDegrees = Array.fill(dataBase.getNumClasses())(0.0)  
-        	val membershipDegrees = Array.fill(dataBase.getNumVariables(), dataBase.getNumLinguisticLabels())(0.0)
-        	 
-        	// Compute the membership degree of the current value to all linguistic labels
-        	for (j <- 0 to (dataBase.getNumVariables() - 1)) {
-          		if (dataBase.get(j).isInstanceOf[FuzzyVariable]){
-          			for (label <- 0 to (dataBase.getNumLinguisticLabels() - 1)){
-          				membershipDegrees(j)(label) = dataBase.computeMembershipDegree(j.toByte, label.toByte, input(j))
-          			}
-          		}
-        	}
-          
-        	// Compute the matching degree of the example with a rule
-        	matchingDegrees(classIndex) = (dataBase.computeMatchingDegree(membershipDegrees, antecedents, input) * classCost(classIndex))       
-        	
-        	var consequent = Array[ConsequentPart]()
-        	consequent = consequent :+ new ConsequentPart(classIndex, matchingDegrees(classIndex))
+
+          var consequent = Array[ConsequentPart]()
+        	consequent = consequent :+ new ConsequentPart(classIndex, 1.0) //no initial weight
         	val aux = ruleBase.get(newRule)
-        	if( aux == None){
+        	if( aux == None){ //rule antecedents not generated yet
         	  ruleBase += (newRule -> consequent)
         	}else{
         	  classEntry = aux.get
         	  var contains: Boolean = false
         	  for(i <- 0 to (classEntry.length - 1)){
-        	    if(classEntry(i).getClassIndex() == classIndex){
-        	      contains = true
-        	      classEntry(i).addRuleWeight(matchingDegrees(classIndex))        	   
+        	    if(classEntry(i).getClassIndex() == classIndex){ 
+        	      contains = true       	   
         	    }
         	  }
-            if (!contains){
+            if (!contains){ //new class ("double" consequent rule)
             	classEntry = classEntry :+ (consequent(0))
             	ruleBase += (newRule -> classEntry)
             }
         	} 	
   			}
       }
-    }
-     
+    }//rules created
+    
+    //Uncomment for Debug
+    /*
+    println("Initial RB:")
     for (rule <- ruleBase){
-      var weight, weightOther, sumTotal: Double = 0.0
-      var classIndex,s: Byte = 0
-      for(consequent <- rule._2){
-        sumTotal = sumTotal + consequent.getRuleWeight()
-        if(consequent.getRuleWeight() > weight){
-          if((weight > 0.0) && (weightOther == 0.0)){
-            weightOther = weight
-          }
-          weight = consequent.getRuleWeight()
-          classIndex =  consequent.getClassIndex()
-        }else if((consequent.getRuleWeight() < weightOther) || (weightOther == 0.0)){
-          weightOther = consequent.getRuleWeight()
-        }
+      print("@ Index="+ index.toString+", Rule - " + rule._1.getAntecedent().deep.mkString(" "))
+      for (consequents <- rule._2)
+         print(" | C=" + consequents.getClassIndex() + " | W=" + consequents.getRuleWeight())
+      println()
+    }
+    */
+    
+    //if no rule weights selected this is unncessary
+    if (rw != KnowledgeBase.RW_NONE)
+      computeMatchingDegreesAll();
+         
+    var j = 0
+    for (rule <- ruleBase){
+      var consequent : ConsequentPart = null;
+      if (rw == KnowledgeBase.RW_NONE){
+        consequent = rule._2(0);
       }
-      
-      weight = (weight - weightOther)/sumTotal //P-CF
-      
+      else{
+        consequent = computeConsequent(rule._2, j);
+      }
       //logger.info("@ Rule - " + rule._1.getAntecedent().deep.mkString(" | ") + " | C=" + classIndex + " | W=" + weight)
-      if(weight > 0){
-        //println("@ Index="+ index.toString+", Rule - " + rule._1.getAntecedent().deep.mkString(" ") + " | C=" + classIndex + " | W=" + weight)
+      if(consequent.getRuleWeight() > 0){
+        //logger.info("@ Index="+ index.toString+", Rule - " + rule._1.getAntecedent().deep.mkString(" ") + " | C=" + classIndex + " | W=" + weight)
+        val res = new FuzzyRule(rule._1.getAntecedent(), consequent.getClassIndex(), consequent.getRuleWeight(), dataBase.getNumClasses())
         
-        val res = new FuzzyRule(rule._1.getAntecedent(), classIndex, weight, dataBase.getNumClasses())
-        
-        counter_rules(classIndex) = counter_rules(classIndex) + 1 
-  		 
-  		  //populationSet += res
+        counter_rules(consequent.getClassIndex()) = counter_rules(consequent.getClassIndex()) + 1 
+
         kb.addFuzzyRule(res)
       }
+      j += 1
     }
     
     kb.initCounterRules(counter_rules)
     
+    //EFS part: Rule Selection. NumEvaluations must be > 0
     var pop = new Population()
 		if (kb.size() > 0 && numEvaluations > 0){
+		  //uncomment for debug
 		  //println("kb before=" + kb.toString())
 			pop = new Population(kb,popSize,numEvaluations,1.0,62,alpha,inputValues,classLabels)
 			kb = pop.Generation(sc)
 		}
 
+    //uncomment for debug
     //println("@ Map= "+index.toString+" | Counter class=> Positive= " + kb.getCounter().getPositive() + ", Negative= " + kb.getCounter().getNegative())
      
-    /**
+    writeExecutionTime(sc, index);
+		
+		//kb.addCounterClass(counter_class)
+		logger.info("Finishing rule generation");
+		Iterator(kb)
+  }
+  
+  def writeExecutionTime(sc: SparkContext, index: Int){
+     /**
 		 *  Write execution time
 		 */    
 		endMs = System.currentTimeMillis()
@@ -326,10 +336,6 @@ class RulesGenerationCS() extends Serializable {
 		  System.err.println(-1)
 		 }
 		}
-		
-		//kb.addCounterClass(counter_class)
-			
-		Iterator(kb)
   }
   
 }

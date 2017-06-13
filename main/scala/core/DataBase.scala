@@ -518,20 +518,7 @@ class DataBase extends Writable with Serializable{
   	def setNumLinguisticLabels(num: Byte){
   		this.numLinguisticLabels = num
   	}
-  	
-  	/**
-  	 * It carries out a two-tuples lateral displacement on the corresponding Fuzzy-Variables object (DB)
-  	 * @param c Chromosome representation
-  	 * @param bd id of the DB to be applied
-  	 */
-  	/*def twotuples (c: Chromosome){
-  		for (i <- 0 to (dataBase.length - 1)) {
-  			if (!(dataBase(i).isInstanceOf[NominalVariable])) {
-  				(dataBase(i).asInstanceOf[FuzzyVariable]).twoTuples(c)
-  			}
-  		}
-  	}*/
-  	
+  	  	
   	/**
   	 * It prints the database into an string
   	 */

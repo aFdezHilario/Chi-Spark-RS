@@ -1,6 +1,7 @@
 package classifier
 
 import org.apache.spark.AccumulatorParam
+import org.apache.log4j.{Level, Logger}
 
 import core.{DataBase, Mediator}
 
@@ -15,6 +16,9 @@ object ConfusionMatrixReducer extends AccumulatorParam[Array[Array[Int]]] {
     Array.fill(initialValue.size, initialValue.size)(0)
   }
 
+  /**
+   * Binary aggregation (2 classes). 
+   */
   override def addInPlace(s1: Array[Array[Int]], s2: Array[Array[Int]]): Array[Array[Int]] = {
       var solution: Array[Array[Int]] = Array.fill(s1.size, s1.size)(0)
  
@@ -26,8 +30,14 @@ object ConfusionMatrixReducer extends AccumulatorParam[Array[Array[Int]]] {
       solution  
   }
 	
+  /**
+   * Uses the confusion matrix to compute evaluation metrics. 
+   * 
+   * Binary AUC is computed in this case. Could be extended for multi-class
+   */
   def metricsConfusionMatrix(solution: Array[Array[Int]], dataBase: DataBase): Double = {
     var TP, TN, FP, FN: Int = 0
+    var logger = Logger.getLogger(this.getClass());
     for(classIndex <- 0 to (solution.size - 1)){
       if(classIndex == 0){
         //println("@ C=" + dataBase.getClassLabel(classIndex.toByte) + " | TP =" + solution(classIndex)(0) + " FN =" + solution(classIndex)(1))
@@ -44,11 +54,15 @@ object ConfusionMatrixReducer extends AccumulatorParam[Array[Array[Int]]] {
     val TPR = (TP/(TP+FN).toDouble)
     val FPR = (FP/(FP+TN).toDouble) //FP / (FP + TN)
     val AUC = ((1 + TPR - FPR) / 2.0)
-    /*println("@ TPR => " + TPR)
-    println("@ FPR => " + FPR)
-    //println("@ TNR => " + (TN/(TN+FP).toDouble))
-    println("@ AUC => " + AUC)*/
-
+    
+    //uncomment for debug
+    /*
+    println("@TP: "+TP+"; FN: "+FN+"; TPR => " + TPR)
+    println("@FP: "+FP+"; TN: "+TN+"; FPR => " + FPR)
+    println("@ TNR => " + (TN/(TN+FP).toDouble))
+    println("@ AUC => " + AUC)
+    */
+    
     AUC
   }
 }

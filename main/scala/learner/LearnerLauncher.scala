@@ -4,16 +4,27 @@ import org.apache.spark.{SparkConf, SparkContext}
 
 import core.{Mediator, FuzzyRule, KnowledgeBase, NominalVariable, Population}
 
+/**
+ * LearnerLauncher: auxiliar class for storing KB in different files
+ * 
+ * @author Eva Almansa (eva.m.almansa@gmail.com)
+ * @author Alberto Fernandez (alberto@decsai.ugr.es) - University of Granada
+ * @version 1.1 (A. Fernandez) - 12/06/2017
+ * 
+ * Main 
+ */
 object LearnerLauncher {
     
-  private final val VALID_OPTIONAL_ARGS: Array[Char] = Array('p','v')
-	private final val MAX_OPTIONAL_ARGS: Int = VALID_OPTIONAL_ARGS.length
+  private final val VALID_OPTIONAL_ARGS: Array[Char] = Array('p','v');
+	private final val MAX_OPTIONAL_ARGS: Int = VALID_OPTIONAL_ARGS.length;
 
 	/**
-	 * Writes the database in a file (including class labels)
+	 * Writes the database in a file (including class labels). It can be also serialized (for a lower storage)
 	 * @throws IOException 
+	 * 
+	 * Instead of replacing the file, it creates a new one, from 000 to 999
 	 */
-	def writeDataBase(kb: KnowledgeBase, sc: SparkContext) {
+  def writeDataBase(kb: KnowledgeBase, sc: SparkContext) {
 
 	  import org.apache.hadoop.fs.{FileSystem, Path}
 	  import org.apache.hadoop.conf.Configuration
@@ -49,14 +60,14 @@ object LearnerLauncher {
 			
 		}catch{
 		  case e: Exception => {
-		    println("\nERROR WRITING RULE BASE (URI)")
+		    println("\nERROR WRITING DATA BASE")
 			  e.printStackTrace()
 			  System.exit(1)
 		  }
 		}
 
 		/**
-		 * TEMPORAL Write info about the number of each rules
+		 * TEMPORAL Write info about the number of each type of rule (classes)
 		 */  
 		try {
 		  
@@ -114,35 +125,6 @@ object LearnerLauncher {
 		  System.err.println(-1)
 		 }
 		}
-	}
-
-	/**
-	 * Writes the data base in text format in a file (specified by Mediator.DATA_BASE_OUTPUT_PATH)
-	 * @param printStdOut if true the data base is printed in the standard output
-	 * @throws IOException 
-	 */
-	def writeDataBaseText (/*printStdOut: Boolean*/) /*throws IOException*/ {
-
-		/*try{
-			FileSystem fs = FileSystem.get(new URI(Mediator.getHDFSLocation()), Mediator.getConfiguration())
-			Path pt = new Path(Mediator.getHDFSLocation()+Mediator.getLearnerDatabasePath()+"_text.txt")
-			//FileSystem fs = FileSystem.get(Mediator.getConfiguration())
-			BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fs.create(pt,true)))
-			bw.write("\nDATA BASE ("+Mediator.getNumVariables()+" variables):\n\n")
-			if (printStdOut)
-				System.out.println("\nDATA BASE ("+Mediator.getNumVariables()+" variables):\n")
-			for (Variable variable:Mediator.getVariables()){
-				bw.write(variable+"\n")
-				if (printStdOut)
-					System.out.println(variable)
-			}
-			bw.close()
-			fs.close()
-		}catch(Exception e){
-			System.err.println("\nERROR WRITING RULE BASE (URI)")
-			e.printStackTrace()
-		}*/
-
 	}
 
 	/**
@@ -260,7 +242,7 @@ object LearnerLauncher {
 	 * @throws IOException 
 	 * @throws IllegalArgumentException 
 	 */
-	def writeFinalRuleBase (kb: KnowledgeBase, sc: SparkContext, printStdOut: Boolean = false) /*throws IllegalArgumentException, IOException*/{
+	def writeFinalRuleBase (kb: KnowledgeBase, sc: SparkContext, printStdOut: Boolean = false) {
 
 	  import org.apache.hadoop.fs.{FileSystem, Path}
 	  import org.apache.hadoop.conf.Configuration
@@ -271,9 +253,8 @@ object LearnerLauncher {
 		  Mediator.createRBfolder(sc)
 		  
 		  val conf = sc.hadoopConfiguration
-  		//conf.set("RB"+"//RuleBase000.txt", Mediator.getLearnerRuleBasePath()+"//RuleBase000.txt")
   		val fs = FileSystem.get(conf)
-		  if(!fs.exists(new Path(Mediator.getLearnerRuleBasePath()+"//RuleBase000.txt"))){
+		  if(!fs.exists(new Path(Mediator.getLearnerRuleBasePath()+"//RuleBase000.txt"))){ //instead of writing the same file, it creates additional ones
 			  kb.saveRBFile(Mediator.getLearnerRuleBasePath()+"//RuleBase000.txt", sc, printStdOut)
   		}
 		  else {
@@ -284,8 +265,6 @@ object LearnerLauncher {
 		      if(i == 10)
 		        aux = "0"
 		        
-		      //conf.set("RB"+"//RuleBase"+aux+i+".txt", Mediator.getLearnerRuleBasePath()+"//RuleBase"+aux+i+".txt")
-  		    //fs = FileSystem.get(conf)
 		      if(!fs.exists(new Path(Mediator.getLearnerRuleBasePath()+"//RuleBase"+aux+i.toString+".txt"))){
     			  kb.saveRBFile(Mediator.getLearnerRuleBasePath()+"//RuleBase"+aux+i.toString+".txt", sc, printStdOut)
     			  create = true
@@ -296,7 +275,7 @@ object LearnerLauncher {
 		  }
 		}catch{
 		  case e: Exception => {
-		    println("\nERROR WRITING DATA BASE")
+		    println("\nERROR WRITING RULE BASE")
 			  e.printStackTrace()
 			  System.err.println(-1)
 		  }
@@ -304,7 +283,7 @@ object LearnerLauncher {
 	}
        
 	/**
-	 * Writes the rule base in a temporal file
+	 * Writes the rule base in a temporal file (for debug)
 	 * @param printStdOut if true the rule base is printed in the standard output
 	 */
 	def writeRuleBaseTmp (ruleBase: Array[FuzzyRule], sc: SparkContext) {

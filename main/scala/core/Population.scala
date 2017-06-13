@@ -4,6 +4,16 @@ import org.apache.spark.SparkContext
 
 import utils.Randomize
 
+/**
+ * Population: the main procedure for the evolutionary optimization
+ * 
+ * @author Eva Almansa (eva.m.almansa@gmail.com)
+ * @author Alberto Fernandez (alberto@decsai.ugr.es) - University of Granada
+ * @version 1.0 (E. Almansa) - 05-feb-2017
+ * @version 1.1 (A. Fernandez) - 12-jun-2017
+ * 
+ * It contains a CHC EA for optimizing an imbalanced classification problem with rule selection 
+ */
 class Population extends Serializable{
   
 	var population: Array[Chromosome] = null
@@ -42,7 +52,7 @@ class Population extends Serializable{
 		for (i <- 0 to (values.length - 1)){
 			this.inputValues = this.inputValues :+ new Array[String](values(i).length - 1)
 			for (j <- 0 to (values(i).length - 2)){
-				this.inputValues(i)(j) = values(i)(j)//.toDouble
+				this.inputValues(i)(j) = values(i)(j)
 			}
 		}
 		this.classLabels = classLabels
@@ -88,38 +98,52 @@ class Population extends Serializable{
 		}
 	}
 	
-	//private def classify(): Double = fitnessAccuracy()
+	/**
+	 * Standard fitness (classifier accuracy)
+	 */
+	private def classifyAcc(individual: Array[Byte]): Double = fitnessAccuracy(individual)
 	
-	private def classify(individual: Array[Byte]): Double = fitnessAUC(individual)*alpha + ((this.cromLength-selectionRules(individual))*(1.0-alpha))
-	
-	/*private def fitnessAccuracy(): Double = {
+	/**
+	 * It computes the accuracy of the classifier. Only selected rules are used (individual)
+	 */
+	private def fitnessAccuracy(individual: Array[Byte]): Double = {
 	  var hits: Int = 0
 		for (i <- 0 to (this.inputValues.length - 1)){
-			//byte classIndex = (byte)Randomize.RandintClosed(0, 1); // (byte)kb.classify(Mediator.getFRM(), example);
-			var classIndex: Byte = kb.classify(Mediator.getFRM(), inputValues(i))
+			var classIndex: Byte = kb.classifyRS(Mediator.getFRM(), individual, inputValues(i))
 			if (classIndex == this.classLabels(i)){
 				hits = hits + 1
 			}
-		}
-	  
+		}	  
 	  (1.0*hits/this.inputValues.length.toDouble)
-	}*/
+	}
 	
+	/**
+	 * Weighted fitness: Rule Selection + AUC
+	 */
+	private def classify(individual: Array[Byte]): Double = fitnessAUC(individual)*alpha + (((this.cromLength-selectionRules(individual))/this.cromLength)*(1.0-alpha))
+	
+	/**
+	 * It computes the number of selected rules (1s in the chromosome)
+	 */
 	private def selectionRules(individual: Array[Byte]): Double = {
 	  var counter = 0.0
 	  for (ind <- individual){
 	    if(ind == 1)
 	      counter = counter + 1.0
 	  }
-	  println("@ Selection= " + counter.toString)
+	  //uncomment for debug
+	  //println("@ Selection= " + counter.toString)
 	  counter
 	}
 	
+	/**
+	 * It computes the AUC of the classifier.
+	 */
 	private def fitnessAUC(individual: Array[Byte]): Double = {
 	  var TP, TN, FP, FN: Int = 0
 		for (i <- 0 to (this.inputValues.length - 1)){
 			var classIndex: Byte = kb.classifyRS(Mediator.getFRM(), individual, inputValues(i))
-			if (this.classLabels(i) == 0){
+			if (this.classLabels(i) == 0){ //0 stands for positive class
 			  if(classIndex == this.classLabels(i))
 				  TP = TP + 1
 			  else
@@ -139,41 +163,26 @@ class Population extends Serializable{
     if((FP+TN).toDouble > 0)
       FPR = (FP.toDouble/(FP+TN).toDouble) //FP / (FP + TN)
     val AUC =  ((1.0 + TPR - FPR) / 2.0)
-    println("@ AUC=" + AUC.toString)
+    //Uncomment for debug
+    /*
+    System.err.println("@KB: "+kb.counterClassLabels().deep.mkString(" "));
+    System.err.println((this.inputValues.length - 1)+" TP: "+TP+"; FP: "+FP+"; TN: "+TN+"; FN: "+FN+" @ AUC=" + AUC.toString)
+    */
 	  AUC
 	}
 	
-	/**
-	 * It evaluates those chromosomes which have not been evaluated yet
-	 */
-	private def Evaluate_Global(sc: SparkContext, numSlices: Int): Double = {
-		var best: Double = 0.0
-		
-		var nPartitions = numSlices
-		if (numSlices > population.length)
-		  nPartitions = population.length
-		
-		var parallel = sc.parallelize(population, nPartitions)
-		var evaluate = parallel.map { c => 
-		                    if (!c.isEvaluated()){
-      				            nuevos = true //There is at least one new chromosome in the population
-                  				var acc: Double = classify(c.getIndividual())
-                  				c.setFitness(acc)
-                  				c.evaluated()
-                  				nEvals = nEvals - 1
-                				  acc
-			                  }else 0.0}
-		best = evaluate.reduce((acc1, acc2) => if (acc1 > acc2) acc1 else acc2)
-		best
-	}
 	
+	/**
+	 * Evaluation procedure of the chromosomes
+	 */
 	private def Evaluate(sc: SparkContext): Double = {
 		var best: Double = 0.0
 		population.foreach { c => 
 		  if (!c.isEvaluated()){
 				nuevos = true //There is at least one new chromosome in the population
 				var acc: Double = classify(c.getIndividual())
-				println("@ AUC fitness= "+acc.toString)
+				//uncomment for debug
+				//println("@ AUC fitness= "+acc.toString)
 				c.setFitness(acc)
 				c.evaluated()
 				nEvals = nEvals - 1
@@ -186,7 +195,7 @@ class Population extends Serializable{
 	}
 	
 	/**
-	 * Crossover function (xPC_BLX)
+	 * Crossover function (HUX)
 	 */
 	def Cross(){
 	  
@@ -205,16 +214,13 @@ class Population extends Serializable{
 		for (i <- 0 to (sample.length - 2) by 2){
 			var mom = population(sample(i))
 			var dad = population(sample(i+1))
-			
 			HUX(mom,dad)
-			
-			//Compute the hamming distance between them
-			/*if (mom.hamming(dad)/2.0 > threshold){ 
-				//xPC_BLX(mom,dad)
-			}*/
 		}
 	}
 	
+	/**
+	 * HUX crossover procedure. Half of the different genes are crossed.
+	 */
 	private def HUX(mom: Chromosome, dad: Chromosome){
     var son1 = mom.clone()
     var son2 = dad.clone()
@@ -222,14 +228,14 @@ class Population extends Serializable{
     var distintos = son1.nDifferents()
     
     var intercambios = distintos / 2
-    if ((distintos > 0) && (intercambios == 0)) //if (distintos && !intercambios)
+    if ((distintos > 0) && (intercambios == 0)) 
       intercambios = 1
     
     var flips = new Array[Int](intercambios)
     for (j <- 0 to (intercambios - 1)) {
       distintos = distintos - 1
       if(distintos >= 0)
-        flips(j) = posiciones(Randomize.getRandom.nextInt(distintos + 1)) //0 (inclusive) and distintos (exclusive)
+        flips(j) = posiciones(Randomize.getRandom.nextInt(distintos + 1))
     }
     son1.flip(flips)
     son2.flip(flips)
@@ -260,7 +266,7 @@ class Population extends Serializable{
 	private def Restart(){
 		population = population.sortWith(_.compareTo(_) < 0)
 		var best = population(0)
-		population = Array[Chromosome]()//removeAll(population)
+		population = Array[Chromosome]()//remove all population
 		Initialize(best)
 	}
 
@@ -271,7 +277,8 @@ class Population extends Serializable{
 		var resets = 0
 		
 		Initialize()
-		println("@ Initilization complete...")		
+		//uncomment for debug
+		//println("@ Initilization complete...")		
 		this.bestFitness = Evaluate(sc)
 		var bestFitness = this.bestFitness 
 		println("@ Evaluations remaining = "+nEvals+", AUC init = "+bestFitness+", resets = "+ resets)
@@ -280,7 +287,8 @@ class Population extends Serializable{
 			nuevos = false
 			bestFitness = Evaluate(sc)
 			Select()
-			println("@ Check Evaluations = "+nEvals+", AUC found = "+bestFitness+", resets = "+ resets)
+			//uncomment for debug
+			//println("@ Check Evaluations = "+nEvals+", AUC found = "+bestFitness+", resets = "+ resets)
 			if (bestFitness > this.bestFitness){
 				this.bestFitness = bestFitness
 				resets = 0
@@ -289,12 +297,13 @@ class Population extends Serializable{
 			if (!nuevos){ //No new chromosomes in the population
 				threshold = threshold - bitsGen
 				if (threshold < 0){
-					System.out.println("*** Restarting ***")
+					println("*** Restarting ***")
 					Restart()
 					threshold = (cromLength*bitsGen)/4.0
           resets = resets + 1
           bestFitness = Evaluate(sc)
-          println("@ Check Evaluations = "+nEvals+", AUC found = "+bestFitness+", resets = "+ resets)
+          //uncomment for debug
+          //println("@ Check Evaluations = "+nEvals+", AUC found = "+bestFitness+", resets = "+ resets)
 					if (bestFitness > this.bestFitness){
 						this.bestFitness = bestFitness
 						resets = 0
@@ -307,49 +316,7 @@ class Population extends Serializable{
 		this.best()
 	}
 	
-	/**
-	 * It launches the evolutionary process
-	 */
-	def Generation_Global(sc: SparkContext, numSlices: Int): KnowledgeBase = {
-		var resets = 0
 		
-		Initialize()
-		println("@ Initilization complete...")		
-		this.bestFitness = Evaluate_Global(sc, numSlices)
-		var bestFitness = this.bestFitness 
-		println("@ Evaluations remaining = "+nEvals+", AUC init = "+bestFitness+", resets = "+ resets)
-		while((nEvals > 0)&&(bestFitness < 1.0)&&(resets < 3)){
-			Cross()
-			nuevos = false
-			bestFitness = Evaluate_Global(sc, numSlices)
-			Select()
-			println("@ Check Evaluations = "+nEvals+", AUC found = "+bestFitness+", resets = "+ resets)
-			if (bestFitness > this.bestFitness){
-				this.bestFitness = bestFitness
-				resets = 0
-				println("@ Evaluations remaining = "+nEvals+", Best AUC = "+this.bestFitness+".")
-			}
-			if (!nuevos){ //No new chromosomes in the population
-				threshold = threshold - bitsGen
-				if (threshold < 0){
-					System.out.println("*** Restarting ***")
-					Restart()
-					threshold = (cromLength*bitsGen)/4.0
-          resets = resets + 1
-          bestFitness = Evaluate_Global(sc, numSlices)
-          println("@ Check Evaluations = "+nEvals+", AUC found = "+bestFitness+", resets = "+ resets)
-					if (bestFitness > this.bestFitness){
-						this.bestFitness = bestFitness
-						resets = 0
-						println("@ Evaluations remaining = "+nEvals+", Best Accuracy = "+this.bestFitness+".")
-					}     
-				}
-			}
-		}
-		
-		this.best()
-	}
-	
 	/**
 	 * Outputs the best chromosome
 	 * @return the best chromosome
