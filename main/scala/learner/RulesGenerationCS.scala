@@ -248,7 +248,20 @@ class RulesGenerationCS() extends Serializable {
     }
     */
     
-    //if no rule weights selected this is unncessary
+    /*
+    var first: String = new String()
+    var last: String = new String()
+    first = first + "@ "+index+" First: ";
+    for (input <- inputValues(0))
+      first = first + input+", ";
+    last = last + "@ "+index+" Last: ";
+    for (input <- inputValues(inputValues.length-1))
+      last = last + input+", ";
+    println(first);
+    println(last);
+    */
+    
+    //if no rule weights selected this is unnecessary
     if (rw != KnowledgeBase.RW_NONE)
       computeMatchingDegreesAll();
          
@@ -261,11 +274,10 @@ class RulesGenerationCS() extends Serializable {
       else{
         consequent = computeConsequent(rule._2, j);
       }
-      //logger.info("@ Rule - " + rule._1.getAntecedent().deep.mkString(" | ") + " | C=" + classIndex + " | W=" + weight)
+      //logger.info("@Index"+index+" Rule - " + rule._1.getAntecedent().deep.mkString(" | ") + " | C=" + consequent.getClassIndex() + " | W=" + consequent.getRuleWeight())
       if(consequent.getRuleWeight() > 0){
-        //logger.info("@ Index="+ index.toString+", Rule - " + rule._1.getAntecedent().deep.mkString(" ") + " | C=" + classIndex + " | W=" + weight)
         val res = new FuzzyRule(rule._1.getAntecedent(), consequent.getClassIndex(), consequent.getRuleWeight(), dataBase.getNumClasses())
-        
+        //logger.info("@ Index="+ index.toString+", Rule - " + res.getAntecedent().deep.mkString(" ") + " | C=" + res.getClassIndex() + " | W=" + res.getRuleWeight())
         counter_rules(consequent.getClassIndex()) = counter_rules(consequent.getClassIndex()) + 1 
 
         kb.addFuzzyRule(res)

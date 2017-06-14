@@ -73,7 +73,7 @@ class FuzzyRule extends Writable with Serializable {
   	 
   }
    
-  private def updateClassIndex(){
+  private def updateClassIndexOld(){
     if(ruleWeight_counter(0)(1) > 0.0 && ruleWeight_counter(1)(1) < 1.0)
       classIndex = 0
     else if (ruleWeight_counter(0)(1) < 1.0 && ruleWeight_counter(1)(1) > 0.0)
@@ -87,6 +87,14 @@ class FuzzyRule extends Writable with Serializable {
         classIndex = 1
     }else
       classIndex = 1
+  }
+  
+  private def updateClassIndex(){
+    //In case of equal weights, positive class (0) has preference
+    if(ruleWeight_counter(1)(0) > ruleWeight_counter(0)(0))
+      classIndex = 1
+    else 
+      classIndex = 0
   }
   
   override def clone(): FuzzyRule = {
@@ -103,7 +111,7 @@ class FuzzyRule extends Writable with Serializable {
   /**
    * Checks if the antecedents are equal and selects the FuzzyRule with the biggest rule weights. 
    */
-  override def equals(obj:Any): Boolean = {
+  def equalsOld(obj:Any): Boolean = {
 
     if(obj.isInstanceOf[FuzzyRule] && (obj.asInstanceOf[FuzzyRule].antecedents sameElements this.antecedents)){
       /* MAX
@@ -136,6 +144,35 @@ class FuzzyRule extends Writable with Serializable {
           this.ruleWeight_counter = obj.asInstanceOf[FuzzyRule].ruleWeight_counter.clone
       }
       
+      return true
+    }
+    return false
+  }
+  
+  /**
+   * Checks if the antecedents are equal (for hashmap) 
+   */
+  override def equals(obj:Any): Boolean = {
+
+    if(obj.isInstanceOf[FuzzyRule] && (obj.asInstanceOf[FuzzyRule].antecedents sameElements this.antecedents)){
+      /*
+      var clas: Byte = obj.asInstanceOf[FuzzyRule].getClassIndex()
+      if (clas >= 0){ //rule already created (not during learning stage)
+        var rw: Double = obj.asInstanceOf[FuzzyRule].getRuleWeight()
+        this.ruleWeight_counter(clas)(0) = ruleWeight_counter(clas)(0) + rw;
+        this.ruleWeight_counter(clas)(1) = ruleWeight_counter(clas)(1) + 1;
+        //println("Mira: "+ruleWeight_counter.deep.toString());
+        //println("@ Before this= "+ antecedents.deep.mkString(" ") +" | Class = " + classIndex + " | Weight positive= " + ruleWeight_counter(0).deep.mkString(", ") + " | Weight negative= " + ruleWeight_counter(1).deep.mkString(", "))
+      }
+      */
+      if (classIndex >= 0){ //rule already created (not during learning stage)
+        for(index <- 0 to (this.ruleWeight_counter.length - 1)){
+          obj.asInstanceOf[FuzzyRule].ruleWeight_counter(index)(0) = obj.asInstanceOf[FuzzyRule].ruleWeight_counter(index)(0) + this.ruleWeight_counter(index)(0);
+          obj.asInstanceOf[FuzzyRule].ruleWeight_counter(index)(1) = obj.asInstanceOf[FuzzyRule].ruleWeight_counter(index)(1) + this.ruleWeight_counter(index)(1);
+        }
+        //println("Mira: "+ruleWeight_counter.deep.toString());
+        //println("@ Before this= "+ antecedents.deep.mkString(" ") +" | Class = " + classIndex + " | Weight positive= " + ruleWeight_counter(0).deep.mkString(", ") + " | Weight negative= " + ruleWeight_counter(1).deep.mkString(", "))
+      }
       return true
     }
     return false
@@ -177,13 +214,26 @@ class FuzzyRule extends Writable with Serializable {
    * Returns the rule weight
    * @return rule weight
    */
-  def getRuleWeight (): Double = {
+  def getRuleWeightOld (): Double = {
     var ruleWeight = 0.0
     if(classIndex != -1){
       ruleWeight = ruleWeight_counter(classIndex)(0)/ruleWeight_counter(classIndex)(1)
     }
     ruleWeight
   }
+  
+  /**
+   * Returns the rule weight, which must be previously well computed (normalized)
+   * @return rule weight
+   */
+  def getRuleWeight (): Double = {
+    var ruleWeight = 0.0
+    if(classIndex != -1){
+      ruleWeight = ruleWeight_counter(classIndex)(0)
+    }
+    ruleWeight
+  }
+
   
   /**
    * Returns the rule weight
@@ -211,6 +261,27 @@ class FuzzyRule extends Writable with Serializable {
     }
     
     this.updateClassIndex()
+  }
+  
+  def addRW(rw: Double, ci: Byte){
+    ruleWeight_counter(ci)(0) = ruleWeight_counter(ci)(0) + rw;
+    ruleWeight_counter(ci)(1) = ruleWeight_counter(ci)(1) + 1;
+  }
+  
+  /**
+   * Update the Consequent of the fuzzy rule: adapts the Rule Weight and the Class label
+   * 
+   * RW was accumulated during Reduce task, i.e. rules with same antecedent contribute to the RW in different maps.
+   * Now, the RW is averaged and the final RW and class label is assigned as the maximum among the different classes 
+   */
+  def updateRWClass(){
+    //extend for more than two classes
+    //println("RW0 = "+ruleWeight_counter(0)(0)+", CL0= "+ruleWeight_counter(0)(1)+"; RW1= "+ruleWeight_counter(1)(0)+"; CL1: "+ruleWeight_counter(1)(1));
+    if (ruleWeight_counter(0)(1) > 0)
+      ruleWeight_counter(0)(0) = ruleWeight_counter(0)(0)/ruleWeight_counter(0)(1);
+    if(ruleWeight_counter(1)(1) > 0)
+      ruleWeight_counter(1)(0) = ruleWeight_counter(1)(0)/ruleWeight_counter(1)(1);
+    updateClassIndex();
   }
   
   def toString (db: DataBase): String = {

@@ -506,6 +506,12 @@ class KnowledgeBase extends Writable with Serializable{
 		ruleBase.length
 	}
 	
+	def updateRules(){
+	  for (rule <- ruleBase){
+	    rule.updateRWClass();
+	  }
+	}
+	
 	override def readFields(in: DataInput) /*throws IOException*/ {
 
 		dataBase = new DataBase()

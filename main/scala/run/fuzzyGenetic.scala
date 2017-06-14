@@ -252,16 +252,18 @@ object fuzzyGenetic {
 					.cache();
 
 			kb = output.reduce((op1, op2) => RulesGenerationReducer.reduce(op1, op2));
+			kb.updateRules(); 
 			endMs = System.currentTimeMillis();
 
+			//uncomment for debug
+			/*
 			println("@ RB size="+ kb.getSizeRuleBase());
 			println("@ Final Rule Base="+kb.counterClassLabels().deep.mkString(" "));
-
-			//uncomment for debug
-			//logger.info("Solution Rule Base...")
-			/*for(rule <- kb.getRuleBase()){
+			logger.info("Solution Rule Base...")
+			for(rule <- kb.getRuleBase()){
           println("@ Final Rule Base= "+rule.getAntecedent().mkString(" ") + " | C=" + rule.getClassIndex() + ", Weight=" + rule.getRuleWeight() + ", Weight Counter=" + rule.getRuleWeightCounter().deep.mkString(" "))
-        }*/
+        }
+       */
 		}catch {
 		case e: Exception => {
 			logger.error("ERROR LAUNCHING MAPREDUCE:\n")
