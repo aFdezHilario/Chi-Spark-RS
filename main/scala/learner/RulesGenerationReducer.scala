@@ -39,7 +39,7 @@ object RulesGenerationReducer extends Serializable {
 					merge += (rule -> 1)
 				}
 			//Uncomment for debug
-			/*			
+					/*
     	  for (m <- merge)
     	    println("@ Merge3 =" + m._1.getAntecedent.deep.mkString(" ") + " | C " + m._1.getClassIndex() + " | W " + m._1.getRuleWeight()+ " | 2 W " + m._1.getRuleWeightCounter().deep)
     	  println("-----------------------------------------------------------------------")

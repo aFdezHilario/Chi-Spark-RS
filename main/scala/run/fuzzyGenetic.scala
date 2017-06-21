@@ -176,12 +176,12 @@ object fuzzyGenetic {
 			/**
 			 * Classify Test
 			 */
-			classifierLauncher(false, inputTestFile, nPartitions, true)
+			//classifierLauncher(false, inputTestFile, nPartitions, true)
 
 			/**
 			 * Classify Train
 			 */
-			classifierLauncher(true, inputFile, nPartitions, true)
+			//classifierLauncher(true, inputFile, nPartitions, true)
 
 		}else{
 			/**

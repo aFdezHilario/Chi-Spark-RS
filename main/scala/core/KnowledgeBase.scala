@@ -576,9 +576,9 @@ class KnowledgeBase extends Writable with Serializable{
     val textPath = new Path(filepath)
     var bwText = new BufferedWriter(new OutputStreamWriter(fs.create(textPath,true)))
      	        
-		bwText.write("\nRULE BASE:\n\n")
+		bwText.write("\nRULE BASE: ("+ruleBase.size+")\n\n")
 		if (printStdOut){
-		  System.out.println("\nRULE BASE:\n")
+		  System.out.println("\nRULE BASE: ("+ruleBase.size+")\n")
 		}
 	  
 	  var id: Int = 0

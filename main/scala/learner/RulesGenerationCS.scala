@@ -84,7 +84,7 @@ class RulesGenerationCS() extends Serializable {
       var j = 0
       for (rule <- ruleBase){
           //t-norm computation for all rules
-          matchingDegrees(j)(classIndex) = dataBase.computeMatchingDegree(membershipDegrees, rule._1.getAntecedent(), input)* classCost(classIndex); 
+          matchingDegrees(j)(classIndex) += dataBase.computeMatchingDegree(membershipDegrees, rule._1.getAntecedent(), input)* classCost(classIndex); 
           //(dataBase.computeMatchingDegree(membershipDegrees, ruleBase(0), input) * classCost(classIndex))
           j+=1
       }
@@ -262,6 +262,7 @@ class RulesGenerationCS() extends Serializable {
     */
     
     //if no rule weights selected this is unnecessary
+    //println("Mira: "+rw+" / "+KnowledgeBase.RW_NONE);
     if (rw != KnowledgeBase.RW_NONE)
       computeMatchingDegreesAll();
          
