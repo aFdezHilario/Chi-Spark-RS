@@ -22,3 +22,5 @@ The Parameter File includes by default:
 1. **cost_sensitive** refers to whether the RW is updated in accordance with the class distribution (1) or not (0)
 1. **num_individuals**, **num_evaluations**, **alpha**, and **init_seed** are parameters for the CHC procedure in case of Rule Selection (num_evaluations > 0)
 1. **cross_validation** is used to carry out a direct FCV durinng the running of the program (the dataset file is iterated from 1 to the value pointed out here).
+
+The dataset files must follow the KEEL [http://www.keel.es] format. Header file includes just the information about the attributes and classes (no @data is needed), whereas the train and test files includes the examples separated by commas.
